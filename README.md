@@ -56,7 +56,7 @@ sudo apt-get update && sudo apt-get install python3 && python3 -m ensurepip && p
    Run the `Silicon.py` file with a desired command, and optional arguments:
 
    ```bash
-   python Silicon.py <Command> --<Argument1>
+   python Silicon.py <Command> --<Argument>
    ```
 
    > Available commands:
@@ -76,7 +76,7 @@ sudo apt-get update && sudo apt-get install python3 && python3 -m ensurepip && p
 
 2. **Open Roblox Studio and use the Plugin Toolbar:**
 
-   > Interact with the custom toolbar buttons to initiate script synchronization operations between Roblox Studio and Visual Studio Code in the relative director your `Silicon.py` script is in.
+   > Interact with the custom toolbar buttons to initiate script synchronization operations between Roblox Studio and Visual Studio Code in the relative directory your `Silicon.py` script is in.
 
 ---
 
