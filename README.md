@@ -9,7 +9,7 @@
 ### Prerequisites
 
 > Make sure Python 3.9 – 3.11 is installed on your system.
-> 
+
 > Get Silicon's [official Roblox Plugin](https://create.roblox.com/store/asset/130303466729127).
 
 ### Windows
