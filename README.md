@@ -82,25 +82,25 @@ sudo apt-get update && sudo apt-get install python3 && python3 -m ensurepip && p
 
 ## 🧪 Features
 
-> 1. **Seamless Script Synchronization**
->
+ 1. **Seamless Script Synchronization**
+
 >    * Quickly, easily export/import scripts between Roblox Studio and your code editor.
 >    * Bi-directional synchronization supported for efficient live development.
 
-> 2. **Cross-Platform**
->
+2. **Cross-Platform**
+
 >    * Compatible with Windows, Mac, and Linux systems.
 
-> 3. **Flexible Modes**
->
+3. **Flexible Modes**
+
 >    * Choose from single or two-way synchronization live-modes, or single-time ones depending on your needs.
 
-> 4. **Minimal Setup**
->
+4. **Minimal Setup**
+
 >    * Just run the Python script and interact via the Roblox Studio UI.
 
-> 5. **Secure and Local**
->
+5. **Secure and Local**
+
 >    * All synchronization operations and configurations are handled locally for full privacy.
 
 ---
