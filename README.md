@@ -53,7 +53,7 @@ sudo apt-get update && sudo apt-get install python3 && python3 -m ensurepip && p
 ## ⚙️ Usage
 
 1. **Start the server:**
-   Run the `Silicon.py` file with a desired command, an optional arguments:
+   Run the `Silicon.py` file with a desired command, and optional arguments:
 
    ```bash
    python Silicon.py <Command> --<Argument1>
