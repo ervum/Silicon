@@ -1,6 +1,7 @@
 # ✨ Silicon
 
 [![Main Programming Language](https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11-0078d7.svg?color=%23fff\&logo=Python\&logoColor=%23fff\&style=for-the-badge)](https://en.wikipedia.org/wiki/Python_%28programming_language%29) ![Secondary Programming Language](https://img.shields.io/badge/luau-0.676-white.svg?logo=lua&logoColor=white&style=for-the-badge)
+
 [![Operating System](https://img.shields.io/badge/platform-Windows%20|%20Mac%20|%20Linux-0078d7.svg?color=%23fff\&logo=Windows\&logoColor=%23fff\&style=for-the-badge)](https://en.wikipedia.org/wiki/Operating_system) [![Architecture](https://img.shields.io/badge/architecture-x86%20|%20x64%20|%20x32-%23fff.svg?color=%23fff\&logo=Aurelia\&logoColor=%23fff\&style=for-the-badge)](https://en.wikipedia.org/wiki/Instruction_set_architecture)
 
 ## 🚀 Getting Started
@@ -8,6 +9,8 @@
 ### Prerequisites
 
 > Make sure Python 3.9 – 3.11 is installed on your system.
+> 
+> Get Silicon's [official Roblox Plugin](https://create.roblox.com/store/asset/130303466729127).
 
 ### Windows
 
