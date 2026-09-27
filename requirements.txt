@@ -1,0 +1,10 @@
+traceback
+threading
+argparse
+requests
+shutil
+gzip
+json
+
+requests
+PyYAML
