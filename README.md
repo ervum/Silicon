@@ -21,7 +21,7 @@
 > * Run the command:
 
 ```batch
-curl -L -o python-installer.exe https://www.python.org/ftp/python/3.11.0/python-3.11.0-amd64.exe && python-installer.exe /quiet InstallAllUsers=1 PrependPath=1 Include_launcher=0 && del python-installer.exe && python -m ensurepip && python -m pip install traceback threading argparse requests shutil gzip json yaml
+curl -L -o python-installer.exe https://www.python.org/ftp/python/3.11.0/python-3.11.0-amd64.exe && python-installer.exe /quiet InstallAllUsers=1 PrependPath=1 Include_launcher=0 && del python-installer.exe && python -m ensurepip && python -m pip install requests pyyaml
 ```
 
 ### Mac
@@ -33,7 +33,7 @@ curl -L -o python-installer.exe https://www.python.org/ftp/python/3.11.0/python-
 > * Run the command:
 
 ```bash
-curl -L -o python-installer.pkg https://www.python.org/ftp/python/3.11.0/python-3.11.0-macos11.pkg && sudo installer -pkg python-installer.pkg -target / && rm python-installer.pkg && python3 -m ensurepip && python3 -m pip install traceback threading argparse requests shutil gzip json yaml
+curl -L -o python-installer.pkg https://www.python.org/ftp/python/3.11.0/python-3.11.0-macos11.pkg && sudo installer -pkg python-installer.pkg -target / && rm python-installer.pkg && python3 -m ensurepip && python3 -m pip install requests pyyaml
 ```
 
 ### Linux
@@ -45,89 +45,106 @@ curl -L -o python-installer.pkg https://www.python.org/ftp/python/3.11.0/python-
 > * Run the command:
 
 ```bash
-sudo apt-get update && sudo apt-get install python3 && python3 -m ensurepip && python3 -m pip install traceback threading argparse requests shutil gzip json yaml
+sudo apt-get update && sudo apt-get install python3 python3-pip && python3 -m pip install requests pyyaml
 ```
 
 ---
 
 ## ⚙️ Usage
 
-1. **Start the server:**
-   Run the `Silicon.py` file with a desired command, and optional arguments:
+### 1. Start the CLI Server
 
-   ```bash
-   python Silicon.py <Command> --<Argument>
-   ```
+Run `Silicon.py` (or `Silicon.bat` from `bin/`) with your desired synchronization mode:
 
-   > Available commands:
-   >
-   > * `Server` 
-   > * `Export`
-   > * `Import`
-   > * `ExportSynchronize`
-   > * `ImportSynchronize`
-   > * `TwoWaySynchronize`
-   
-   > Available arguments (usually, don't use this):
-   > * `Script`
-   > * `Host`
-   > * `Port`
-   > * `Requests`
+```bash
+python Silicon.py <Command> [options]
+```
 
-2. **Open Roblox Studio and use the Plugin Toolbar:**
+> **Available Commands:**
+>
+> * `Bidirectional`: Continuously synchronizes scripts and hierarchy bidirectionally between Roblox Studio and the local IDE directory with instant reactivity and Recycle Bin safety.
+> * `BidirectionalFromRoblox`: Starts bidirectional synchronization with an initial export from Roblox Studio to the local IDE directory.
+> * `BidirectionalFromIDE`: Starts bidirectional synchronization with an initial import from the local IDE directory to Roblox Studio.
+> * `AllDescendants`: Continuously synchronizes **ALL** descendants of `game` (scripts, folders, models, UI, etc.) bidirectionally between Roblox Studio and the local IDE directory.
+> * `Export`: One-time export of place scripts and their ancestry to the local IDE directory.
+> * `Import`: One-time import of scripts from the local IDE directory into Roblox Studio.
+> * `ExportSynchronize`: One-way live synchronization from IDE to Roblox Studio upon file changes.
+> * `ImportSynchronize`: One-way live synchronization from Roblox Studio to IDE upon editing scripts.
+> * `Server`: Runs the background HTTP long-polling synchronization server.
 
-   > Interact with the custom toolbar buttons to initiate script synchronization operations between Roblox Studio and Visual Studio Code in the relative directory your `Silicon.py` script is in.
+> **Command Options:**
+>
+> * `--Target`, `-p`: Target directory where game files are stored (defaults to `Silicon/Game`).
+> * `--Settings`, `-s`: Custom path to `Settings.yaml` configuration file.
+> * `--Host`, `-H`: Web host address (defaults to `localhost`).
+> * `--Port`, `-P`: Port number (defaults to `6969`).
+> * `--Script`, `-S`: Filter processing to a specific script and its ancestry.
+
+### 2. Connect via Roblox Studio
+
+Open Roblox Studio and use the **Silicon** toolbar buttons:
+
+> Interact with the toolbar buttons (`Bidirectional`, `Bidirectional from Roblox`, `Bidirectional from IDE`, `All Descendants`, `Export`, `Import`, etc.) to initiate live or one-shot synchronization directly within Studio.
 
 ---
 
-## 🧪 Features
+## 📁 Architecture & Organization
 
- 1. **Seamless Script Synchronization**
+Silicon structures synchronized Roblox hierarchies into an intuitive, modular on-disk representation:
 
->    * Quickly, easily export/import scripts between Roblox Studio and your code editor.
->    * Bi-directional synchronization supported for efficient live development.
+1. **Uniform Instance Folders**: Every in-game object (services, folders, scripts, GUI elements, parts) is represented as a folder matching its instance name.
+2. **Properties File (`Properties.json`)**: Every instance folder contains a `Properties.json` file preserving:
+   * Engine properties (`ClassName`, `Color`, `Size`, `CFrame`, `Anchored`, etc.).
+   * Custom attributes under `__Attributes__`.
+   * CollectionService tags under `__Tags__`.
+3. **Script Source (`Source.[Type].luau`)**: Scripts additionally contain a source file indicating their runtime context:
+   * `Source.server.luau` (Server scripts)
+   * `Source.client.luau` (Client / LocalScripts)
+   * `Source.shared.luau` (ModuleScripts)
+4. **Selective Hierarchy**: By default, empty folders are only created if they are part of the direct ancestry of a script. To synchronize every instance in the game, run the `AllDescendants` command.
 
-2. **Cross-Platform**
+---
 
->    * Compatible with Windows, Mac, and Linux systems.
+## 🛡️ Non-Destructive Safety & Recycle Bin
 
-3. **Flexible Modes**
+* **Studio Recycle Bin**: Deletions triggered by the IDE move instances to `ReplicatedStorage/Silicon/Recycle Bin` in Roblox Studio rather than permanently destroying them.
+* **System Recycle Bin**: Files deleted or pruned from the local workspace are safely sent to the operating system's Recycle Bin / Trash (`SendToRecycleBin`).
+* **Isolated Plugin Storage**: The running plugin installs and maintains a clean local copy at `ReplicatedStorage/Silicon/Plugin` that is strictly excluded from export to avoid self-referential clutter while allowing `ReplicatedStorage/Silicon/Recycle Bin` to sync smoothly.
 
->    * Choose from single or two-way synchronization live-modes, or single-time ones depending on your needs.
+---
 
-4. **Minimal Setup**
+## 🧪 Key Features
 
->    * Just run the Python script and interact via the Roblox Studio UI.
-
-5. **Secure and Local**
-
->    * All synchronization operations and configurations are handled locally for full privacy.
+1. **Instant Reactive Synchronization**
+   * Roblox Studio uses `ScriptEditorService` to stream live edits to disk without requiring document close.
+   * Local file modifications immediately patch live Studio script instances without resetting cursor position or editor state.
+2. **Zero-Latency Event Streaming**
+   * Custom long-polling HTTP architecture (`/changes` endpoint) ensures instant delivery of changes without polling bottlenecks.
+3. **Cross-Platform Compatibility**
+   * Native support for Windows, macOS, and Linux.
+4. **Global CLI Integration**
+   * Add `Silicon/bin` to your `PATH` or invoke `bin/Silicon.bat` to synchronize any project from anywhere.
 
 ---
 
 ## 📦 Dependencies
 
-This plugin relies on the following Python modules:
-
-```python
-traceback, threading, argparse, requests, shutil, gzip, json, yaml, sys, io, os
-```
-
-As well as:
-
-```python
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from threading   import Thread
-```
-
-And finally the single [Luau module](https://devforum.roblox.com/t/api-service-v107a-a-utility-modulescript-for-roblox-api-methods/1548433):
+Python dependencies:
 
 ```
-APIService
+requests
+pyyaml
 ```
+
+Built-in modules utilized: `traceback`, `threading`, `argparse`, `http.server`, `socketserver`, `hashlib`, `shutil`, `ctypes`, `gzip`, `json`, `time`, `sys`, `io`, `os`.
+
+Roblox Plugin dependencies:
+* `ScriptEditorService`
+* `HttpService`
+* `APIService` (included)
 
 ---
 
 ## 💡 Tip
 
-For the best experience, bind `Silicon.py` to a startup task or terminal tab. You’ll be ready to synchronize scripts every time you start development.
+Bind `Silicon.bat Bidirectional` to a startup task or terminal tab in your IDE workspace. Whenever you launch development, your local files and Studio session will synchronize seamlessly and safely.

@@ -1,0 +1,11 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Game synchronization directory
+Game/
+
+# Scratch and temporary directories
+scratch/
+.trash/
