@@ -44,6 +44,9 @@ print(`[Silicon] Silicon Roblox Plugin v{Version} initialized!`);
 
 
 
+local UIModule: any = require(script.UI);
+local UIController: any = nil;
+
 local function ToggleSynchronization(Method: string): ()
 	EnsurePluginCopy();
 
@@ -60,6 +63,11 @@ local function ToggleSynchronization(Method: string): ()
 		ActiveMethod = nil;
 
 		print(`Successfully stopped script synchronization ({Method})!`);
+
+		if UIController then
+			UIController.SetStatus('Idle', true, nil);
+			UIController.Log(`Stopped {Method} synchronization.`);
+		end
 
 		return;
 	end
@@ -90,128 +98,113 @@ local function ToggleSynchronization(Method: string): ()
 
 	print(`Successfully started script synchronization ({Method})!`);
 
+	if UIController then
+		UIController.SetStatus('Live', true, Method);
+		UIController.Log(`Started {Method} live synchronization.`);
+	end
+
 	return;
 end
 
 
 
-Dependencies.Create(
-	Toolbar,
-	`Export`,
-	`Exports all scripts within the specified current place to the local IDE directory.`,
-	'rbxassetid://78911552761219',
-	`Exported all scripts to locally hosted server via {PluginName}`,
-	true,
-	function(): ()
+local MainButton: PluginToolbarButton = Toolbar:CreateButton(
+	'Silicon',
+	'Open the Silicon synchronization dashboard and controls',
+	'rbxasset://textures/Silicon/live.png',
+	'Silicon'
+);
+MainButton.ClickableWhenViewportHidden = true;
+
+local OpenUIAction: PluginAction = plugin:CreatePluginAction(
+	'SiliconOpenUI',
+	'Silicon UI',
+	'Open the Silicon synchronization dashboard',
+	'rbxasset://textures/Silicon/live.png',
+	true
+);
+
+local BidirectionalAction: PluginAction = plugin:CreatePluginAction(
+	'SiliconBidirectional',
+	'Live Sync',
+	'Toggle bidirectional synchronization',
+	'rbxasset://textures/Silicon/live.png',
+	true
+);
+
+local ExportAction: PluginAction = plugin:CreatePluginAction(
+	'SiliconExport',
+	'Export to IDE',
+	'Export all scripts to local files',
+	'rbxasset://textures/Silicon/upload.png',
+	true
+);
+
+local ImportAction: PluginAction = plugin:CreatePluginAction(
+	'SiliconImport',
+	'Import from IDE',
+	'Import all scripts from local files',
+	'rbxasset://textures/Silicon/download.png',
+	true
+);
+
+
+
+UIController = UIModule(plugin, {
+	ToggleSynchronization = function(Method: string): ()
+		if IsHTTPServerRunning() then
+			ToggleSynchronization(Method);
+		end
+	end,
+	Export = function(): ()
 		if IsHTTPServerRunning() then
 			Export();
 		end
 	end,
-	nil
-);
-
-Dependencies.Create(
-	Toolbar,
-	`Import`,
-	`Imports all scripts within the specified local IDE directory to the current place.`,
-	'rbxassetid://78911552761219',
-	`Imported all scripts from locally hosted server via {PluginName}`,
-	true,
-	function(): ()
+	Import = function(): ()
 		if IsHTTPServerRunning() then
 			Import();
 		end
 	end,
-	nil
-);
-
-Dependencies.Create(
-	Toolbar,
-	`Export-Synchronize`,
-	`Synchronizes scripts to the IDE by sending their updated versions upon ending typing.`,
-	'rbxassetid://78911552761219',
-	`Synchronized scripts to locally hosted server via {PluginName}`,
-	true,
-	function(): ()
-		if IsHTTPServerRunning() then
-			ToggleSynchronization('Export');
-		end
+	CheckServer = function(): (boolean)
+		return IsHTTPServerRunning();
 	end,
-	nil
-);
-
-Dependencies.Create(
-	Toolbar,
-	`Import-Synchronize`,
-	`Synchronizes scripts from the IDE by receiving their updated versions upon ending typing.`,
-	'rbxassetid://78911552761219',
-	`Synchronized scripts to locally hosted server via {PluginName}`,
-	true,
-	function(): ()
-		if IsHTTPServerRunning() then
-			ToggleSynchronization('Import');
-		end
+	GetActiveMethod = function(): (string?)
+		return ActiveMethod;
 	end,
-	nil
-);
-
-Dependencies.Create(
-	Toolbar,
-	`Bidirectional`,
-	`Continuously synchronizes scripts and hierarchy bidirectionally between Roblox Studio and the local IDE directory with instant reactivity and Recycle Bin safety.`,
-	'rbxassetid://78911552761219',
-	`Synchronized scripts bidirectionally via {PluginName}`,
-	true,
-	function(): ()
-		if IsHTTPServerRunning() then
-			ToggleSynchronization('Bidirectional');
-		end
+	GetVersion = function(): (string)
+		return Version;
 	end,
-	nil
-);
+});
 
-Dependencies.Create(
-	Toolbar,
-	`Bidirectional from Roblox`,
-	`Starts bidirectional synchronization with an initial export from Roblox Studio to the local IDE directory.`,
-	'rbxassetid://78911552761219',
-	`Synchronized scripts bidirectionally from Roblox via {PluginName}`,
-	true,
-	function(): ()
-		if IsHTTPServerRunning() then
-			ToggleSynchronization('BidirectionalFromRoblox');
-		end
-	end,
-	nil
-);
+MainButton.Click:Connect(function(): ()
+	UIController.ToggleUI();
+end);
 
-Dependencies.Create(
-	Toolbar,
-	`Bidirectional from IDE`,
-	`Starts bidirectional synchronization with an initial import from the local IDE directory to Roblox Studio.`,
-	'rbxassetid://78911552761219',
-	`Synchronized scripts bidirectionally from IDE via {PluginName}`,
-	true,
-	function(): ()
-		if IsHTTPServerRunning() then
-			ToggleSynchronization('BidirectionalFromIDE');
-		end
-	end,
-	nil
-);
+OpenUIAction.Triggered:Connect(function(): ()
+	UIController.ToggleUI();
+end);
 
-Dependencies.Create(
-	Toolbar,
-	`All Descendants`,
-	`Continuously synchronizes ALL descendants of game bidirectionally between Roblox Studio and the local IDE directory, including all non-script instances.`,
-	'rbxassetid://78911552761219',
-	`Synchronized all descendants of game via {PluginName}`,
-	true,
-	function(): ()
-		if IsHTTPServerRunning() then
-			ToggleSynchronization('AllDescendants');
-		end
-	end,
-	nil
-);
+BidirectionalAction.Triggered:Connect(function(): ()
+	if IsHTTPServerRunning() then
+		ToggleSynchronization('Bidirectional');
+	end
+end);
+
+ExportAction.Triggered:Connect(function(): ()
+	if IsHTTPServerRunning() then
+		Export();
+	end
+end);
+
+ImportAction.Triggered:Connect(function(): ()
+	if IsHTTPServerRunning() then
+		Import();
+	end
+end);
+
+UIController.Widget:GetPropertyChangedSignal('Enabled'):Connect(function(): ()
+	MainButton:SetActive((UIController.Widget.Enabled));
+end);
+
 

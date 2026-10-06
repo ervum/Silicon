@@ -1,0 +1,49 @@
+{
+  "Name": "Silicon",
+  "Controls": [
+    {
+      "Id": "SiliconOpenUIButton",
+      "Type": "Button",
+      "Text": "Silicon UI",
+      "Action": {
+        "PluginId": "user_Silicon.rbxmx",
+        "DataModel": "Standalone",
+        "Category": "Actions",
+        "ItemId": "SiliconOpenUI"
+      }
+    },
+    {
+      "Id": "SiliconBidirectionalButton",
+      "Type": "Button",
+      "Text": "Live Sync",
+      "Action": {
+        "PluginId": "user_Silicon.rbxmx",
+        "DataModel": "Standalone",
+        "Category": "Actions",
+        "ItemId": "SiliconBidirectional"
+      }
+    },
+    {
+      "Id": "SiliconExportButton",
+      "Type": "Button",
+      "Text": "Export",
+      "Action": {
+        "PluginId": "user_Silicon.rbxmx",
+        "DataModel": "Standalone",
+        "Category": "Actions",
+        "ItemId": "SiliconExport"
+      }
+    },
+    {
+      "Id": "SiliconImportButton",
+      "Type": "Button",
+      "Text": "Import",
+      "Action": {
+        "PluginId": "user_Silicon.rbxmx",
+        "DataModel": "Standalone",
+        "Category": "Actions",
+        "ItemId": "SiliconImport"
+      }
+    }
+  ]
+}
