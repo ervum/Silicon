@@ -22,6 +22,9 @@ local PN: string, AN: string, TN: string, SN: string, DN: string, UN: string, SP
 local ExportPropertyBlacklist: { [number]: string }, ExportDuplicated: boolean = (Settings.ExportFromRSPropertyBlacklist), (Settings.ExportFromRSDuplicated);
 local Host: string = (Settings.ServerHost or 'localhost');
 local Port: number = (Settings.ServerPort or 6969);
+local RootFolderName: string = (Settings.RootFolderName or 'Silicon');
+local PluginFolderName: string = (Settings.PluginFolderName or 'Silicon');
+local RecycleBinFolderName: string = (Settings.RecycleBinFolderName or 'Recycle Bin');
 local ChunkSize: number = (Settings.ExportFromRSDataChunkSize);
 local IgnoredAncestors: { [number]: string } = (Settings.IgnoredAncestors);
 local NameBlacklist: { [number]: string } = (Settings.ExportFromRSNameBlacklist.Windows);
@@ -35,6 +38,7 @@ local JSONReturnablePropertyTypes: { [number]: string } = (Variables.JSONReturna
 local GetAncestry: ((Instance) -> ({ [number]: string })) = (Variables.GetAncestry);
 local State: { IsApplyingRemoteUpdate: boolean } = (Variables.State);
 local LastKnownScriptHashes: { [string]: string } = (Variables.LastKnownScriptHashes);
+local EnsurePluginCopy: (() -> (Instance?)) = (Variables.EnsurePluginCopy);
 
 
 
@@ -83,19 +87,34 @@ local function IsPluginInternal(Object: Instance?): (boolean)
 
 	if not ReplicatedStorageInstance then return false end
 
-	local SiliconFolder: Instance? = ReplicatedStorageInstance:FindFirstChild('Silicon');
+	local ConfiguredRootFolderName: string = (Settings.RootFolderName or RootFolderName or 'Silicon');
+	local ConfiguredPluginFolderName: string = (Settings.PluginFolderName or PluginFolderName or 'Silicon');
 
-	if SiliconFolder then
-		local PluginFolder: Instance? = SiliconFolder:FindFirstChild('Plugin');
+	local ConfiguredRoot: Instance? = ReplicatedStorageInstance:FindFirstChild(ConfiguredRootFolderName);
 
-		if PluginFolder and ((Object == PluginFolder) or Object:IsDescendantOf(PluginFolder)) then
+	if ConfiguredRoot then
+		local ConfiguredPlugin: Instance? = ConfiguredRoot:FindFirstChild(ConfiguredPluginFolderName);
+
+		if ConfiguredPlugin and ((Object == ConfiguredPlugin) or Object:IsDescendantOf(ConfiguredPlugin)) then
+			return true;
+		end
+
+		local LegacyPlugin: Instance? = ConfiguredRoot:FindFirstChild('Plugin');
+
+		if LegacyPlugin and ((Object == LegacyPlugin) or Object:IsDescendantOf(LegacyPlugin)) then
 			return true;
 		end
 	end
 
-	local DirectPluginFolder: Instance? = ReplicatedStorageInstance:FindFirstChild('Plugin');
+	local DirectPluginFolder: Instance? = ReplicatedStorageInstance:FindFirstChild(ConfiguredPluginFolderName);
 
 	if DirectPluginFolder and ((Object == DirectPluginFolder) or Object:IsDescendantOf(DirectPluginFolder)) then
+		return true;
+	end
+
+	local LegacyRootPlugin: Instance? = ReplicatedStorageInstance:FindFirstChild('Plugin');
+
+	if LegacyRootPlugin and ((Object == LegacyRootPlugin) or Object:IsDescendantOf(LegacyRootPlugin)) then
 		return true;
 	end
 
@@ -226,6 +245,8 @@ local function SerializeObject(Object: Instance): ({ [string]: any })
 end
 
 local function ExportSingleObject(Object: Instance, IsDeleted: boolean?): ()
+	EnsurePluginCopy();
+
 	if (State.IsApplyingRemoteUpdate == true) then return end
 
 	if IsIgnored(Object) then return end
@@ -236,13 +257,15 @@ local function ExportSingleObject(Object: Instance, IsDeleted: boolean?): ()
 
 	if not ShouldSyncAllDescendants and not IsDeleted then
 		local IsInRecycleBin: boolean = false;
+		local ConfiguredRootFolderName: string = (Settings.RootFolderName or RootFolderName or 'Silicon');
+		local ConfiguredBinFolderName: string = (Settings.RecycleBinFolderName or RecycleBinFolderName or 'Recycle Bin');
 		local RepStorage: Instance? = game:FindFirstChild('ReplicatedStorage');
 
 		if RepStorage then
-			local SiliconFolder: Instance? = RepStorage:FindFirstChild('Silicon');
+			local RootFolder: Instance? = RepStorage:FindFirstChild(ConfiguredRootFolderName);
 
-			if SiliconFolder then
-				local RecycleBin: Instance? = SiliconFolder:FindFirstChild('Recycle Bin');
+			if RootFolder then
+				local RecycleBin: Instance? = RootFolder:FindFirstChild(ConfiguredBinFolderName);
 
 				if RecycleBin and ((Object == RecycleBin) or Object:IsDescendantOf(RecycleBin)) then
 					IsInRecycleBin = true;
@@ -309,6 +332,8 @@ end
 
 
 return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
+	EnsurePluginCopy();
+
 	IsLIVE = (IsLIVE == true);
 
 	local LocalSyncAllDescendants: boolean? = Settings.SyncAllDescendants;
@@ -323,6 +348,9 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 
 		Host = (Settings.ServerHost or Host);
 		Port = (Settings.ServerPort or Port);
+		RootFolderName = (Settings.RootFolderName or RootFolderName or 'Silicon');
+		PluginFolderName = (Settings.PluginFolderName or PluginFolderName or 'Silicon');
+		RecycleBinFolderName = (Settings.RecycleBinFolderName or RecycleBinFolderName or 'Recycle Bin');
 		ChunkSize = (Settings.ExportFromRSDataChunkSize or ChunkSize);
 		IgnoredAncestors = (Settings.IgnoredAncestors or IgnoredAncestors);
 	end
@@ -377,15 +405,17 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 		local ReplicatedStorageInstance: Instance? = ServiceSuccess and ServiceResult or game:FindFirstChild('ReplicatedStorage');
 
 		if ReplicatedStorageInstance and not IsIgnored(ReplicatedStorageInstance) then
-			local SiliconFolder: Instance? = ReplicatedStorageInstance:FindFirstChild('Silicon');
+			local ConfiguredRootFolderName: string = (Settings.RootFolderName or RootFolderName or 'Silicon');
+			local ConfiguredBinFolderName: string = (Settings.RecycleBinFolderName or RecycleBinFolderName or 'Recycle Bin');
 
-			if SiliconFolder and not IsIgnored(SiliconFolder) then
-				local TargetBinName: string = (Settings.RecycleBinName or 'Recycle Bin');
-				local RecycleBin: Instance? = SiliconFolder:FindFirstChild(TargetBinName);
+			local RootFolder: Instance? = ReplicatedStorageInstance:FindFirstChild(ConfiguredRootFolderName);
+
+			if RootFolder and not IsIgnored(RootFolder) then
+				local RecycleBin: Instance? = RootFolder:FindFirstChild(ConfiguredBinFolderName);
 
 				if RecycleBin and not IsIgnored(RecycleBin) then
 					ScriptAncestors[ReplicatedStorageInstance] = true;
-					ScriptAncestors[SiliconFolder] = true;
+					ScriptAncestors[RootFolder] = true;
 					ScriptAncestors[RecycleBin] = true;
 
 					for _: number, BinDescendant: Instance in RecycleBin:GetDescendants() do

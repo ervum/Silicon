@@ -9,3 +9,13 @@ Game/
 # Scratch and temporary directories
 scratch/
 .trash/
+
+# Agent cache and preview artifacts
+.agents/PROJECT.MD
+.agents/PROJECT.md
+.agents/prompt_draft.md
+.agents/*.cache
+.agents/cache/
+.agents/*.tmp
+.agents/*.log
+

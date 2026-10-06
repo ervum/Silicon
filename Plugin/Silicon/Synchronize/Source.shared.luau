@@ -26,6 +26,8 @@ local Export: ((Instance?, boolean?) -> ()) = require(Dependencies.__Export__);
 local ImportModule: any = (Dependencies.Import);
 local ApplyIncrementalChange: (({ [string]: any }) -> ()) = (ImportModule.ApplyIncrementalChange);
 local Connect: { [string]: (( ... any) -> ( ... any)) } = (Dependencies.Connect);
+local Variables: { [string]: any } = (Dependencies.Variables);
+local EnsurePluginCopy: (() -> (Instance?)) = (Variables.EnsurePluginCopy);
 
 
 
@@ -54,6 +56,8 @@ local function SynchronizeExport(): (RBXScriptConnection)
 					local TargetScript: LuaSourceContainer? = ChangedScript:GetScript();
 
 					if TargetScript then
+						EnsurePluginCopy();
+
 						Export(TargetScript, true);
 					end
 
@@ -108,6 +112,8 @@ local function SynchronizeImport(): (RBXScriptConnection)
 					for _: number, ChangeEvent: { [string]: any } in DecodedPayload.events do
 						if not (Connection.Connected) then break end
 
+						EnsurePluginCopy();
+
 						ApplyIncrementalChange(ChangeEvent);
 
 						if ChangeEvent.id and (ChangeEvent.id > LastEventId) then
@@ -128,65 +134,6 @@ local function SynchronizeImport(): (RBXScriptConnection)
 	end);
 
 	return Connection;
-end
-
-
-
-local function EnsurePluginCopy(): (Instance?)
-	local ServiceSuccess: boolean, ServiceResult: any = pcall(function(): (Instance)
-		return game:GetService('ReplicatedStorage');
-	end);
-
-	local ReplicatedStorageInstance: Instance? = ServiceSuccess and ServiceResult or game:FindFirstChild('ReplicatedStorage');
-
-	if not ReplicatedStorageInstance then return nil end
-
-	local SiliconFolder: Instance? = ReplicatedStorageInstance:FindFirstChild('Silicon');
-
-	if not SiliconFolder then
-		local NewSiliconFolder: Folder = Instance.new('Folder');
-
-		NewSiliconFolder.Name = 'Silicon';
-		NewSiliconFolder.Parent = ReplicatedStorageInstance;
-
-		SiliconFolder = NewSiliconFolder;
-	end
-
-	local PluginContainer: Instance? = (SiliconFolder :: Instance):FindFirstChild('Plugin');
-
-	if not PluginContainer then
-		local NewPluginFolder: Folder = Instance.new('Folder');
-
-		NewPluginFolder.Name = 'Plugin';
-		NewPluginFolder.Parent = SiliconFolder;
-
-		PluginContainer = NewPluginFolder;
-	end
-
-	local ExistingPlugin: Instance? = (PluginContainer :: Instance):FindFirstChild((Root.Name));
-
-	if (PluginContainer :: Instance):IsA('Folder') and (Root.Parent ~= PluginContainer) and (not ExistingPlugin or (#ExistingPlugin:GetChildren() < #Root:GetChildren())) then
-		if ExistingPlugin then
-			ExistingPlugin:Destroy();
-		end
-
-		Root.Archivable = true;
-
-		for _: number, DescendantInstance: Instance in Root:GetDescendants() do
-			DescendantInstance.Archivable = true;
-		end
-
-		local ScriptClone: Instance? = Root:Clone();
-
-		if ScriptClone then
-			ScriptClone.Archivable = true;
-			ScriptClone.Parent = PluginContainer;
-
-			print('[Silicon] Successfully installed copy of Silicon into ReplicatedStorage/Silicon/Plugin.');
-		end
-	end
-
-	return PluginContainer;
 end
 
 

@@ -16,23 +16,22 @@ return {
 	
 	ServerType                     = 'POST GET',
 	
-	PropertiesFileExtension        = 'json',   ---> Either 'YAML' or 'JSON'.
+	PropertiesFileExtension        = 'yaml',   ---> Either 'YAML' or 'JSON'.
 	SourceFileExtension            = 'luau',   ---> Typically, 'Lua' or 'Luau'.
 	
 	CleanUpBeforeImportInIDE       = true,
-	CleanUpBeforeImportInVSC       = true,     ---> Deprecated alias for CleanUpBeforeImportInIDE.
 	CleanUpBeforeImportInRS        = true,
 	SyncAllDescendants             = false,    ---> If false, only scripts and their direct ancestry are synced. If true, all place descendants are synced.
 	
 	SynchronizationIDEDebounceTime = 10.0,
-	SynchronizationVSCDebounceTime = 10.0,     ---> Deprecated alias for SynchronizationIDEDebounceTime.
 	SynchronizationRSDebounceTime  = 0.1,
 	LongPollTimeout                = 5.0,
 	
 	ConflictMode                   = 'Local-authoritative', ---> 'Local-authoritative' | 'Studio-authoritative' | 'Merging'
 	
-	RecycleBinParent               = 'ReplicatedStorage/Silicon',
-	RecycleBinName                 = 'Recycle Bin',
+	RootFolderName                 = 'Silicon',
+	PluginFolderName               = 'Silicon',
+	RecycleBinFolderName           = 'Recycle Bin',
 	
 	IgnoredAncestors               = { },
 	
@@ -40,7 +39,6 @@ return {
 	MaximumLengthRSScriptContainer = 'Folder', ---> In case the source of a script is too big causing it to be divided, the parent object of the different parts will be an object instantiated with this ClassName.
 	
 	ExportFromIDEMaximumLength     = false,    ---> If a file's source length is over `MaximumRSScriptLength`, it won't be exported to Roblox Studio.
-	ExportFromVSCMaximumLength     = false,    ---> Deprecated alias for ExportFromIDEMaximumLength.
 	ExportFromRSDuplicated         = true,     ---> In Roblox Studio, two files can be equally named within the same folder, yet that's tipically not the case in the user's OS. If true, the exported will be called `{OriginalName}-{i}` where i is the index of duplication with a padded zero (00, 01, 02, ...).
 	ExportFromRSDataChunkSize      = 819200,   ---> Roblox Studio's HTTPService's POST Requests are limited to	1MB of data; this number represents 800KB (800 * 1,024) and is cautiously set in order to avoid errors. Can attempt to increase it.
 	ExportFromRSPropertyBlacklist  = {

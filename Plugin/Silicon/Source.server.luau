@@ -14,6 +14,8 @@ local Export: ((Instance?) -> ()) = require(Dependencies.__Export__); ---> <Expo
 local ImportModule: any = (Dependencies.Import);
 local Import: ((boolean?) -> ()) = (ImportModule.Import or ImportModule);
 local Synchronize: { [string]: (() -> ( ... any)) } = (Dependencies.Synchronize);
+local Variables: { [string]: any } = (Dependencies.Variables);
+local EnsurePluginCopy: (() -> (Instance?)) = (Variables.EnsurePluginCopy);
 
 
 
@@ -32,69 +34,6 @@ local Connections: { [number?]: RBXScriptConnection } = (Status.Connections);
 local ActiveMethod: string? = nil;
 
 
-
-local function EnsurePluginCopy(): (Instance?)
-	local ReplicatedStorage: Instance? = nil;
-
-	local ServiceSuccess: boolean, ServiceResult: any = pcall(function(): (Instance)
-		return game:GetService('ReplicatedStorage');
-	end);
-
-	if ServiceSuccess and ServiceResult then
-		ReplicatedStorage = ServiceResult;
-	else
-		ReplicatedStorage = game:FindFirstChild('ReplicatedStorage');
-	end
-
-	if not ReplicatedStorage then return nil end
-
-	local SiliconFolder: Instance? = ReplicatedStorage:FindFirstChild('Silicon');
-
-	if not SiliconFolder then
-		local NewSiliconFolder: Folder = Instance.new('Folder');
-
-		NewSiliconFolder.Name = 'Silicon';
-		NewSiliconFolder.Parent = ReplicatedStorage;
-
-		SiliconFolder = NewSiliconFolder;
-	end
-
-	local PluginContainer: Instance? = SiliconFolder:FindFirstChild('Plugin');
-
-	if not PluginContainer then
-		local NewPluginFolder: Folder = Instance.new('Folder');
-
-		NewPluginFolder.Name = 'Plugin';
-		NewPluginFolder.Parent = SiliconFolder;
-
-		PluginContainer = NewPluginFolder;
-	end
-
-	local ExistingPlugin: Instance? = PluginContainer:FindFirstChild((script.Name));
-
-	if PluginContainer:IsA('Folder') and (script.Parent ~= PluginContainer) and (not ExistingPlugin or (#ExistingPlugin:GetChildren() < #script:GetChildren())) then
-		if ExistingPlugin then
-			ExistingPlugin:Destroy();
-		end
-
-		script.Archivable = true;
-
-		for _: number, DescendantInstance: Instance in script:GetDescendants() do
-			DescendantInstance.Archivable = true;
-		end
-
-		local ScriptClone: Instance? = script:Clone();
-
-		if ScriptClone then
-			ScriptClone.Archivable = true;
-			ScriptClone.Parent = PluginContainer;
-
-			print('[Silicon] Successfully installed copy of Silicon into ReplicatedStorage/Silicon/Plugin.');
-		end
-	end
-
-	return PluginContainer;
-end
 
 EnsurePluginCopy();
 

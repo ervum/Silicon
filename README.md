@@ -93,7 +93,7 @@ Open Roblox Studio and use the **Silicon** toolbar buttons:
 Silicon structures synchronized Roblox hierarchies into an intuitive, modular on-disk representation:
 
 1. **Uniform Instance Folders**: Every in-game object (services, folders, scripts, GUI elements, parts) is represented as a folder matching its instance name.
-2. **Properties File (`Properties.json`)**: Every instance folder contains a `Properties.json` file preserving:
+2. **Properties File (`Properties.yaml` / `Properties.json`)**: Every instance folder contains a `Properties.yaml` (default) or `Properties.json` file preserving:
    * Engine properties (`ClassName`, `Color`, `Size`, `CFrame`, `Anchored`, etc.).
    * Custom attributes under `__Attributes__`.
    * CollectionService tags under `__Tags__`.
@@ -109,7 +109,7 @@ Silicon structures synchronized Roblox hierarchies into an intuitive, modular on
 
 * **Studio Recycle Bin**: Deletions triggered by the IDE move instances to `ReplicatedStorage/Silicon/Recycle Bin` in Roblox Studio rather than permanently destroying them.
 * **System Recycle Bin**: Files deleted or pruned from the local workspace are safely sent to the operating system's Recycle Bin / Trash (`SendToRecycleBin`).
-* **Isolated Plugin Storage**: The running plugin installs and maintains a clean local copy at `ReplicatedStorage/Silicon/Plugin` that is strictly excluded from export to avoid self-referential clutter while allowing `ReplicatedStorage/Silicon/Recycle Bin` to sync smoothly.
+* **Isolated Plugin Storage**: The running plugin installs and maintains a clean local copy at `ReplicatedStorage/Silicon/Silicon` (configurable via `RootFolderName` and `PluginFolderName` in `Settings.yaml`) that is strictly excluded from export to avoid self-referential clutter while allowing `ReplicatedStorage/Silicon/Recycle Bin` to sync smoothly.
 
 ---
 

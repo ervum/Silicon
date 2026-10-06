@@ -1,2 +1,6 @@
 @echo off
-python "%~dp0..\Silicon.py" %*
+if "%~1"=="" (
+    python "%~dp0..\Silicon.py" Bidirectional
+) else (
+    python "%~dp0..\Silicon.py" %*
+)

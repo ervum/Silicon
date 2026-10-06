@@ -154,6 +154,13 @@ def IsPathIgnored(RelativePath: str) -> (bool):
         if (IgnoredDir in Segments):
             return True;
 
+    RootFolderName: str = Settings.get('RootFolderName', Settings.get('RecycleBinParent', 'Silicon'));
+    PluginFolderName: str = Settings.get('PluginFolderName', 'Silicon');
+    PluginFolderRelativePath: str = f'ReplicatedStorage/{RootFolderName}/{PluginFolderName}';
+
+    if (NormalizedPath == PluginFolderRelativePath) or NormalizedPath.startswith(f'{PluginFolderRelativePath}/'):
+        return True;
+
     if (NormalizedPath == 'ReplicatedStorage/Silicon/Plugin') or NormalizedPath.startswith('ReplicatedStorage/Silicon/Plugin/'):
         return True;
 
@@ -517,12 +524,16 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                                 'Tags'      : Tags,
                             };
                             PropertiesFilePath: str = os.path.join(ObjectDir, PropertiesFileName);
-                            PropertiesJSON: str = json.dumps(PropertiesPayload, indent = 2);
+                            PropertiesContent: str = (
+                                yaml.dump(PropertiesPayload, default_flow_style = False, allow_unicode = True, sort_keys = False)
+                                if UseYAML
+                                else json.dumps(PropertiesPayload, indent = 2)
+                            );
 
                             with open(PropertiesFilePath, 'w', encoding = 'utf-8') as PropsFile:
-                                PropsFile.write(PropertiesJSON);
+                                PropsFile.write(PropertiesContent);
 
-                            MarkStudioWrite(PropertiesFilePath, ComputeSHA256(PropertiesJSON));
+                            MarkStudioWrite(PropertiesFilePath, ComputeSHA256(PropertiesContent));
 
                             if (Source is not None):
                                 ResolvedScriptType: str = ScriptType or (
@@ -662,12 +673,16 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                                 'Tags'      : SyncData.get('tags', [ ]),
                             };
                             PropertiesFilePath = os.path.join(FullTargetDir, PropertiesFileName);
-                            PropertiesJSON = json.dumps(PropertiesPayload, indent = 2);
+                            PropertiesContent = (
+                                yaml.dump(PropertiesPayload, default_flow_style = False, allow_unicode = True, sort_keys = False)
+                                if UseYAML
+                                else json.dumps(PropertiesPayload, indent = 2)
+                            );
 
                             with open(PropertiesFilePath, 'w', encoding = 'utf-8') as PropsFile:
-                                PropsFile.write(PropertiesJSON);
+                                PropsFile.write(PropertiesContent);
 
-                            MarkStudioWrite(PropertiesFilePath, ComputeSHA256(PropertiesJSON));
+                            MarkStudioWrite(PropertiesFilePath, ComputeSHA256(PropertiesContent));
 
                             ResolvedScriptType = SyncData.get('scriptType') or (
                                 'client' if (SyncData.get('className') == 'LocalScript')
@@ -718,12 +733,16 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                         'Tags'      : Tags,
                     };
                     PropertiesFilePath = os.path.join(FullTargetDir, PropertiesFileName);
-                    PropertiesJSON = json.dumps(PropertiesPayload, indent = 2);
+                    PropertiesContent = (
+                        yaml.dump(PropertiesPayload, default_flow_style = False, allow_unicode = True, sort_keys = False)
+                        if UseYAML
+                        else json.dumps(PropertiesPayload, indent = 2)
+                    );
 
                     with open(PropertiesFilePath, 'w', encoding = 'utf-8') as PropsFile:
-                        PropsFile.write(PropertiesJSON);
+                        PropsFile.write(PropertiesContent);
 
-                    MarkStudioWrite(PropertiesFilePath, ComputeSHA256(PropertiesJSON));
+                    MarkStudioWrite(PropertiesFilePath, ComputeSHA256(PropertiesContent));
 
                     if (Source is not None):
                         ResolvedScriptType = ScriptType or (
@@ -1057,15 +1076,19 @@ def LoadSettings(ExplicitSettingsPath: Optional[str] = None) -> (Dict[str, Any])
 Settings: Dict[str, Any] = LoadSettings();
 PN: str = Settings.get('PropertiesName', 'Properties');
 SN: str = Settings.get('SourceName', 'Source');
-PropertiesFileExtension: str = Settings.get('PropertiesFileExtension', 'json').lower();
+PropertiesFileExtension: str = Settings.get('PropertiesFileExtension', 'yaml').lower();
 PropertiesFileName: str = f'{PN}.{PropertiesFileExtension}';
 SourceFileName: str = f'{SN}.{(Settings.get("SourceFileExtension", "luau")).lower()}';
 UseYAML: bool = ('y' in PropertiesFileExtension);
 
+RootFolderName: str = Settings.get('RootFolderName', Settings.get('RecycleBinParent', 'Silicon'));
+PluginFolderName: str = Settings.get('PluginFolderName', 'Silicon');
+RecycleBinFolderName: str = Settings.get('RecycleBinFolderName', Settings.get('RecycleBinName', 'Recycle Bin'));
+
 
 
 def Import(Data: Dict[str, Any], Path: str = BasePath, IsLIVE: bool = False) -> (None):
-    if not IsLIVE and (Settings.get('CleanUpBeforeImportInIDE', False) or Settings.get('CleanUpBeforeImportInVSC', False)):
+    if not IsLIVE and Settings.get('CleanUpBeforeImportInIDE', False):
         if os.path.isdir(BasePath):
             for ImportedServiceFolder in os.listdir(BasePath):
                 DeletePath(os.path.join(BasePath, ImportedServiceFolder));
@@ -1118,12 +1141,14 @@ def Export(ScriptToSynchronize: Optional[str] = None) -> (Dict[str, Any]):
 
         HasScriptSource: bool = any(
             (FileName.startswith('Source.') or FileName.startswith('__Source__.') or FileName.endswith('.luau') or FileName.endswith('.lua'))
-            and (FileName != PropertiesFileName) and (FileName != 'Properties.json')
+            and (FileName != PropertiesFileName) and (FileName != 'Properties.json') and (FileName != 'Properties.yaml')
             for FileName in Files
         );
 
+        RecycleBinRelativePath: str = f'ReplicatedStorage/{RootFolderName}/{RecycleBinFolderName}';
         IsInRecycleBin: bool = (
-            (RelDir in ('ReplicatedStorage', 'ReplicatedStorage/Silicon', 'ReplicatedStorage/Silicon/Recycle Bin'))
+            (RelDir in ('ReplicatedStorage', f'ReplicatedStorage/{RootFolderName}', RecycleBinRelativePath, 'ReplicatedStorage/Silicon', 'ReplicatedStorage/Silicon/Recycle Bin'))
+            or RelDir.startswith(f'{RecycleBinRelativePath}/')
             or RelDir.startswith('ReplicatedStorage/Silicon/Recycle Bin/')
         );
 
@@ -1145,7 +1170,7 @@ def Export(ScriptToSynchronize: Optional[str] = None) -> (Dict[str, Any]):
         PropsFilePath: str = os.path.join(ObjectDir, PropertiesFileName);
 
         if not os.path.isfile(PropsFilePath):
-            AltPropsPath: str = os.path.join(ObjectDir, 'Properties.json');
+            AltPropsPath: str = os.path.join(ObjectDir, 'Properties.json' if ('yaml' in PropertiesFileName) else 'Properties.yaml');
             if os.path.isfile(AltPropsPath):
                 PropsFilePath = AltPropsPath;
 
@@ -1157,7 +1182,7 @@ def Export(ScriptToSynchronize: Optional[str] = None) -> (Dict[str, Any]):
         if os.path.isfile(PropsFilePath):
             try:
                 with open(PropsFilePath, 'r', encoding = 'utf-8', errors = 'replace') as PropsFile:
-                    LoadedData: Dict[str, Any] = json.load(PropsFile);
+                    LoadedData: Dict[str, Any] = yaml.safe_load(PropsFile) or { };
                     ClassName = LoadedData.get('ClassName', 'Folder');
                     Properties = LoadedData.get('Properties', { });
                     Attributes = LoadedData.get('Attributes', { });
@@ -1173,7 +1198,7 @@ def Export(ScriptToSynchronize: Optional[str] = None) -> (Dict[str, Any]):
             FilePath: str = os.path.join(ObjectDir, FileName);
 
             if os.path.isfile(FilePath) and (FileName.startswith('Source.') or FileName.startswith('__Source__.') or FileName.endswith('.luau') or FileName.endswith('.lua')):
-                if (FileName == PropertiesFileName) or (FileName == 'Properties.json'):
+                if (FileName == PropertiesFileName) or (FileName == 'Properties.json') or (FileName == 'Properties.yaml'):
                     continue;
 
                 try:
@@ -1203,6 +1228,9 @@ def Export(ScriptToSynchronize: Optional[str] = None) -> (Dict[str, Any]):
 
 
 if (__name__ == '__main__'):
+    if (len(sys.argv) == 1):
+        sys.argv.append('Bidirectional');
+
     Parser: ArgumentParser = argparse.ArgumentParser(description = 'Export or run a server for synchronizing uni or bilaterally from or to Roblox Studio');
     Subparsers: _SubParsersAction = Parser.add_subparsers(dest = 'command', required = True, help = 'Command to run');
 
@@ -1225,10 +1253,13 @@ if (__name__ == '__main__'):
         Settings['SyncAllDescendants'] = SyncAllDescendantsFlag;
         PN = Settings.get('PropertiesName', 'Properties');
         SN = Settings.get('SourceName', 'Source');
-        PropertiesFileExtension = Settings.get('PropertiesFileExtension', 'json').lower();
+        PropertiesFileExtension = Settings.get('PropertiesFileExtension', 'yaml').lower();
         PropertiesFileName = f'{PN}.{PropertiesFileExtension}';
         SourceFileName = f'{SN}.{(Settings.get("SourceFileExtension", "luau")).lower()}';
         UseYAML = ('y' in PropertiesFileExtension);
+        RootFolderName = Settings.get('RootFolderName', Settings.get('RecycleBinParent', 'Silicon'));
+        PluginFolderName = Settings.get('PluginFolderName', 'Silicon');
+        RecycleBinFolderName = Settings.get('RecycleBinFolderName', Settings.get('RecycleBinName', 'Recycle Bin'));
 
     BasePath = ResolveGameBasePath(Arguments.Target);
 
