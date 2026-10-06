@@ -8,23 +8,45 @@ StringifiedPropertyName       : 'S__'
 DuplicatedAttributeName       : '__DuplicatedIndex__'
 UnnamedTableName              : '__Unnamed__'
 
+# ------------------------------------------------------------------------------
+# Server Connection & Networking (CLI: --Host, --Port, --Requests)
+# ------------------------------------------------------------------------------
 ServerHost                    : 'localhost'
 ServerPort                    : 6969
-
 ServerType                    : 'POST GET'
+LongPollTimeout               : 5.0      # Timeout in seconds for HTTP long-polling change streaming.
 
+# ------------------------------------------------------------------------------
+# File Formats & Code Extensions
+# ------------------------------------------------------------------------------
 PropertiesFileExtension       : 'yaml'   # Either 'YAML' or 'JSON'.
 SourceFileExtension           : 'luau'   # Typically, 'Lua' or 'Luau'.
 
+# ------------------------------------------------------------------------------
+# CLI Arguments & Directory Overrides (CLI: --Target, --Script, --AllDescendants)
+# ------------------------------------------------------------------------------
+TargetDirectory               : ~        # Equivalent to `--Target` / `-p`. Absolute or relative path where Game files are stored (e.g. 'C:/Users/User/Desktop/Game'). If null (~), defaults to 'Silicon/Game'.
+ScriptToSynchronize           : ~        # Equivalent to `--Script` / `-S`. Path to a specific script to process along with its ancestry. If null (~), all scripts are processed.
+DefaultCommand                : 'Bidirectional' # Default synchronization mode if none is passed on CLI ('Bidirectional', 'BidirectionalFromRoblox', 'BidirectionalFromIDE', 'AllDescendants', 'Export', 'Import', 'Server').
+CustomSettingsPath            : ~        # Equivalent to `--Settings` / `-s`. Path to an alternative Settings.yaml configuration file.
+
+# ------------------------------------------------------------------------------
+# Synchronization Policy & Safety Rules
+# ------------------------------------------------------------------------------
 CleanUpBeforeImportInIDE      : true
 CleanUpBeforeImportInRS       : true
 
-SynchronizeAllDescendants     : false    # If false, only scripts and their direct ancestry are synchronized. If true, all place descendants are synchronized.
+SynchronizeAllDescendants     : false    # If false, only scripts and their direct ancestry are synchronized. If true, all place descendants are synchronized. (CLI: --AllDescendants / -a).
 SyncAllDescendants            : false
+
+ConflictMode                  : 'Local-authoritative' # Conflict resolution policy: 'Local-authoritative' | 'Studio-authoritative' | 'Merging'.
 
 SynchronizationIDEDebounceTime: 10.0
 SynchronizationRSDebounceTime : 0.1
 
+# ------------------------------------------------------------------------------
+# Script Splitting & Export Limits
+# ------------------------------------------------------------------------------
 MaximumRSScriptLength         : 199999   # Roblox Studio's scripts `.Source` property is scriptable but has a limit of 200,000 characters, thus any script exceeding said restriction will be separated into parts.
 MaximumLengthRSScriptContainer: 'Folder' # In case the source of a script is too big causing it to be divided, the parent object of the different parts will be an object instantiated with this ClassName.
 
@@ -35,12 +57,19 @@ ExportFromRSPropertyBlacklist :          # By default, `Name`, `Parent` and `Dis
   - 'Name'
   - 'Parent'
   - 'Disabled'                           # There's already `Enabled`.
+ExportFromRSNameBlacklist     : [ ]      # Names of instances within Roblox Studio to strictly exclude from export.
 
+# ------------------------------------------------------------------------------
+# Internal Roblox Hierarchy & Folder Isolation
+# ------------------------------------------------------------------------------
 RootFolderName                : 'Silicon'
 PluginFolderName              : 'Plugin'
 RecycleBinFolderName          : 'Recycle Bin'
 IgnoredAncestors              : [ ]
 
+# ------------------------------------------------------------------------------
+# HTTP Headers & Internal Sentinels
+# ------------------------------------------------------------------------------
 StatusHeader                  :
   Request-Type: GETStatus
 

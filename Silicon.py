@@ -31,8 +31,13 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 
 def ResolveGameBasePath(ExplicitTarget: Optional[str] = None) -> (str):
-    if ExplicitTarget:
-        AbsExplicit: str = os.path.abspath(ExplicitTarget);
+    Target: Optional[str] = ExplicitTarget;
+
+    if not Target and ('Settings' in globals()) and isinstance(Settings, dict):
+        Target = Settings.get('TargetDirectory') or Settings.get('Target');
+
+    if Target:
+        AbsExplicit: str = os.path.abspath(Target);
         os.makedirs(AbsExplicit, exist_ok = True);
 
         return AbsExplicit;
@@ -1272,7 +1277,8 @@ def Export(ScriptToSynchronize: Optional[str] = None) -> (Dict[str, Any]):
 
 if (__name__ == '__main__'):
     if (len(sys.argv) == 1):
-        sys.argv.append('Bidirectional');
+        DefaultCommandSetting: str = Settings.get('DefaultCommand', Settings.get('Command', 'Bidirectional'));
+        sys.argv.append(DefaultCommandSetting);
 
     Parser: ArgumentParser = argparse.ArgumentParser(description = 'Export or run a server for synchronizing uni or bilaterally from or to Roblox Studio');
     Subparsers: _SubParsersAction = Parser.add_subparsers(dest = 'command', required = True, help = 'Command to run');
@@ -1303,7 +1309,7 @@ if (__name__ == '__main__'):
         SourceFileName = f'{SN}.{(Settings.get("SourceFileExtension", "luau")).lower()}';
         UseYAML = ('y' in PropertiesFileExtension);
         RootFolderName = Settings.get('RootFolderName', Settings.get('RecycleBinParent', 'Silicon'));
-        PluginFolderName = Settings.get('PluginFolderName', 'Silicon');
+        PluginFolderName = Settings.get('PluginFolderName', 'Plugin');
         RecycleBinFolderName = Settings.get('RecycleBinFolderName', Settings.get('RecycleBinName', 'Recycle Bin'));
 
     BasePath = ResolveGameBasePath(Arguments.Target);
@@ -1322,7 +1328,7 @@ if (__name__ == '__main__'):
         ServerType = (Arguments.Requests);
 
     else:
-        Script = (Arguments.Script);
+        Script = (Arguments.Script) or Settings.get('ScriptToSynchronize') or Settings.get('Script');
 
     if not IsHTTPServerRunning(ServerURL):
         ServerType = ServerType or ServerTypesForSubparsers.get(Command, Settings.get('ServerType', 'POST GET'));
