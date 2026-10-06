@@ -397,6 +397,8 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 					end
 				end
 			end
+		end
+
 		---> Always preserve and export the in-Studio Recycle Bin and all its contents
 		local ServiceSuccess: boolean, ServiceResult: any = pcall(function(): (Instance)
 			return game:GetService('ReplicatedStorage');
