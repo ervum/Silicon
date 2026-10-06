@@ -293,6 +293,17 @@ end
 
 
 
+local function NormalizeSourceText(SourceText: string?): (string)
+	if not SourceText then return '' end
+
+	local CleanedText: string = string.gsub(SourceText, '\r\n', '\n');
+	CleanedText = string.gsub(CleanedText, '\r', '\n');
+
+	return (string.gsub(CleanedText, '%s+$', ''));
+end
+
+
+
 local function PerformBidirectionalMerge(): ()
 	EnsurePluginCopy();
 
@@ -402,23 +413,25 @@ local function PerformBidirectionalMerge(): ()
 		local LeafName: string = Segments[SegmentCount];
 		local ParentPath: string = table.concat(Segments, '/', 1, (SegmentCount - 1));
 
-		if HasDescendantInSet(RelativePath) then
-			continue;
-		end
-
 		local StudioInstance: Instance? = StudioInstancesByPath[RelativePath];
 		local IDEObject: { [string]: any }? = IDEObjectsByPath[RelativePath];
 
+		local IsScriptItem: boolean = (StudioInstance and StudioInstance:IsA('LuaSourceContainer')) or (IDEObject and (IDEObject.source ~= nil));
+
+		if not IsScriptItem and HasDescendantInSet(RelativePath) then
+			continue;
+		end
+
 		if StudioInstance and IDEObject then
 			local StudioSource: string? = StudioInstance:IsA('LuaSourceContainer') and (StudioInstance :: any).Source or nil;
-			local IDESource: string? = IDEObject.source;
+			local IDESource: string? = (IDEObject.source);
 
 			local IsIdentical: boolean = false;
 
 			if (StudioSource ~= nil) and (IDESource ~= nil) then
-				IsIdentical = (StudioSource == IDESource);
+				IsIdentical = (NormalizeSourceText(StudioSource) == NormalizeSourceText(IDESource));
 			elseif (StudioSource == nil) and (IDESource == nil) then
-				IsIdentical = (StudioInstance.ClassName == IDEObject.className);
+				IsIdentical = ((StudioInstance.ClassName) == (IDEObject.className or 'Folder'));
 			end
 
 			if IsIdentical then
@@ -437,17 +450,17 @@ local function PerformBidirectionalMerge(): ()
 					StudioInstance.Name = RSName;
 				end);
 
-				local IDEClassName: string = IDEObject.className or StudioInstance.ClassName;
+				local IDEClassName: string = (IDEObject.className) or (StudioInstance.ClassName);
 				local TargetIDEPath: string = `{ParentPath}/{IDEName}`;
 				local CreatedIDEInstance: Instance? = ImportModule.EnsureInstanceHierarchy(TargetIDEPath, IDEClassName);
 
 				if CreatedIDEInstance then
-					ImportModule.ApplyPropertiesToObject(CreatedIDEInstance, IDEObject.properties, IDEObject.attributes, IDEObject.tags);
+					ImportModule.ApplyPropertiesToObject(CreatedIDEInstance, (IDEObject.properties), (IDEObject.attributes), (IDEObject.tags));
 
-					if IDEObject.source and CreatedIDEInstance:IsA('LuaSourceContainer') then
-						(CreatedIDEInstance :: any).Source = IDEObject.source;
+					if (IDEObject.source ~= nil) and CreatedIDEInstance:IsA('LuaSourceContainer') then
+						(CreatedIDEInstance :: any).Source = (IDEObject.source);
 
-						LastKnownScriptHashes[TargetIDEPath] = IDEObject.source;
+						LastKnownScriptHashes[TargetIDEPath] = (IDEObject.source);
 					end
 				end
 
@@ -455,7 +468,9 @@ local function PerformBidirectionalMerge(): ()
 			end
 
 		elseif StudioInstance and not IDEObject then
-			if (string.sub(LeafName, 1, 3) ~= 'RS.') and (string.sub(LeafName, 1, 4) ~= 'IDE.') then
+			local IsFileItem: boolean = StudioInstance:IsA('LuaSourceContainer') or ShouldSynchronizeAllDescendants;
+
+			if IsFileItem and (string.sub(LeafName, 1, 3) ~= 'RS.') and (string.sub(LeafName, 1, 4) ~= 'IDE.') then
 				local RSName: string = `RS.{LeafName}`;
 
 				local RenameSuccess: boolean = pcall(function(): ()
@@ -470,18 +485,19 @@ local function PerformBidirectionalMerge(): ()
 			end
 
 		elseif not StudioInstance and IDEObject then
-			local IDEName: string = (string.sub(LeafName, 1, 4) == 'IDE.') and LeafName or (`IDE.{LeafName}`);
+			local IsFileItem: boolean = (IDEObject.source ~= nil) or ShouldSynchronizeAllDescendants;
+			local IDEName: string = (IsFileItem and (string.sub(LeafName, 1, 4) ~= 'IDE.')) and (`IDE.{LeafName}`) or LeafName;
 			local TargetIDEPath: string = `{ParentPath}/{IDEName}`;
-			local IDEClassName: string = IDEObject.className or 'Folder';
+			local IDEClassName: string = (IDEObject.className) or 'Folder';
 			local CreatedIDEInstance: Instance? = ImportModule.EnsureInstanceHierarchy(TargetIDEPath, IDEClassName);
 
 			if CreatedIDEInstance then
-				ImportModule.ApplyPropertiesToObject(CreatedIDEInstance, IDEObject.properties, IDEObject.attributes, IDEObject.tags);
+				ImportModule.ApplyPropertiesToObject(CreatedIDEInstance, (IDEObject.properties), (IDEObject.attributes), (IDEObject.tags));
 
-				if IDEObject.source and CreatedIDEInstance:IsA('LuaSourceContainer') then
-					(CreatedIDEInstance :: any).Source = IDEObject.source;
+				if (IDEObject.source ~= nil) and CreatedIDEInstance:IsA('LuaSourceContainer') then
+					(CreatedIDEInstance :: any).Source = (IDEObject.source);
 
-					LastKnownScriptHashes[TargetIDEPath] = IDEObject.source;
+					LastKnownScriptHashes[TargetIDEPath] = (IDEObject.source);
 				end
 
 				ImportedCount += 1;
