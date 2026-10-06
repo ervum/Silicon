@@ -77,6 +77,7 @@ BasePath: str = ResolveGameBasePath();
 ServerTypesForSubparsers: Dict[str, str] = {
     'Bidirectional'          : 'POST GET',
     'BidirectionalFromRoblox': 'POST GET',
+    'BidirectionalFromStudio': 'POST GET',
     'BidirectionalFromIDE'   : 'POST GET',
     'AllDescendants'         : 'POST GET',
 
@@ -92,6 +93,7 @@ ServerTypesForSubparsers: Dict[str, str] = {
 DescriptionsForSubparsers: Dict[str, str] = {
     'Bidirectional'          : 'Continuously synchronize data bidirectionally between IDE and Roblox Studio',
     'BidirectionalFromRoblox': 'Perform initial import from Roblox Studio to IDE files, then continuously synchronize bidirectionally',
+    'BidirectionalFromStudio': 'Perform initial import from Roblox Studio to IDE files, then continuously synchronize bidirectionally',
     'BidirectionalFromIDE'   : 'Perform initial import from IDE files to Roblox Studio, then continuously synchronize bidirectionally',
     'AllDescendants'         : 'Continuously synchronize ALL descendants of game bidirectionally between IDE and Roblox Studio',
 
@@ -1363,7 +1365,7 @@ if (__name__ == '__main__'):
     else:
         print('[SINGLE-TIME CONNECTION]');
 
-    if ('fromroblox' in Command.lower()):
+    if ('fromroblox' in Command.lower()) or ('fromstudio' in Command.lower()):
         print('[INITIAL SYNCHRONIZATION: ROBLOX -> IDE]');
     elif ('fromide' in Command.lower()):
         print('[INITIAL SYNCHRONIZATION: IDE -> ROBLOX]');

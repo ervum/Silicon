@@ -1,0 +1,232 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Silicon: Bidirectional (Live)",
+      "type": "shell",
+      "command": "python Silicon.py Bidirectional",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "detail": "Continuously synchronize scripts and properties two-way between IDE and Roblox Studio"
+    },
+    {
+      "label": "Silicon: Bidirectional from Studio (Initial Import + Live)",
+      "type": "shell",
+      "command": "python Silicon.py BidirectionalFromStudio",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "detail": "Import existing Studio objects into IDE first, then continuously synchronize bidirectionally"
+    },
+    {
+      "label": "Silicon: Bidirectional from IDE (Initial Export + Live)",
+      "type": "shell",
+      "command": "python Silicon.py BidirectionalFromIDE",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "detail": "Export local IDE files into Roblox Studio first, then continuously synchronize bidirectionally"
+    },
+    {
+      "label": "Silicon: All Descendants (Full Place Live Sync)",
+      "type": "shell",
+      "command": "python Silicon.py AllDescendants",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "detail": "Continuously synchronize ALL descendants of game hierarchy bidirectionally"
+    },
+    {
+      "label": "Silicon: Studio to IDE (Import Live)",
+      "type": "shell",
+      "command": "python Silicon.py ImportSynchronize",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "detail": "One-way continuous synchronization: Roblox Studio changes stream to local IDE files"
+    },
+    {
+      "label": "Silicon: IDE to Studio (Export Live)",
+      "type": "shell",
+      "command": "python Silicon.py ExportSynchronize",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "detail": "One-way continuous synchronization: Local IDE changes stream to Roblox Studio"
+    },
+    {
+      "label": "Silicon: One-Shot Export (IDE -> Studio)",
+      "type": "shell",
+      "command": "python Silicon.py Export",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "detail": "Single-time push of all local IDE files into Roblox Studio without continuous watching"
+    },
+    {
+      "label": "Silicon: One-Shot Import (Studio -> IDE)",
+      "type": "shell",
+      "command": "python Silicon.py Import",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "detail": "Single-time pull of all Roblox Studio objects to local disk without continuous watching"
+    },
+    {
+      "label": "Silicon: Interactive Start (Choose Mode & Options)...",
+      "type": "shell",
+      "command": "python Silicon.py ${input:commandMode} ${input:customArgs}",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "detail": "Interactively select command mode and pass optional CLI flags (--Target, --Script, etc.)"
+    },
+    {
+      "label": "Silicon: Check Server Status",
+      "type": "shell",
+      "command": "python Silicon.py Status",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "detail": "Check if the Silicon daemon is currently listening on port 6969"
+    },
+    {
+      "label": "Silicon: Manage PATH (Add/Remove)",
+      "type": "shell",
+      "command": "ManagePATH.bat",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "detail": "Open interactive PATH manager to register or deregister Silicon in User PATH"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "commandMode",
+      "type": "pickString",
+      "description": "Select Silicon synchronization mode:",
+      "options": [
+        "Bidirectional",
+        "BidirectionalFromStudio",
+        "BidirectionalFromIDE",
+        "AllDescendants",
+        "ImportSynchronize",
+        "ExportSynchronize",
+        "Export",
+        "Import",
+        "Status"
+      ],
+      "default": "Bidirectional"
+    },
+    {
+      "id": "customArgs",
+      "type": "promptString",
+      "description": "Optional CLI arguments (e.g. -p C:\\Game -S Workspace.MyScript -a, or leave empty):",
+      "default": ""
+    }
+  ]
+}
