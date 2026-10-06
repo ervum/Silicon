@@ -626,7 +626,32 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                     Action: str = SynchronizationData.get('action', 'update');
 
                     if (Action in ('finalize_synchronization', 'finalize_sync')):
-                        AllExportedPaths: Set[str] = set(SynchronizationData.get('received_paths', [ ]));
+                        IsChunk: bool = SynchronizationData.get('is_chunk', False);
+                        IsFinal: bool = SynchronizationData.get('is_final', True);
+                        ChunkPaths: List[str] = SynchronizationData.get('received_paths', [ ]);
+
+                        if not hasattr(self.server, 'AccumulatedPaths'):
+                            self.server.AccumulatedPaths = set();
+
+                        if IsChunk:
+                            self.server.AccumulatedPaths.update(ChunkPaths);
+
+                            if not IsFinal:
+                                ResponsePayload: bytes = json.dumps({ 'success': True, 'accumulated': len(self.server.AccumulatedPaths) }).encode('utf-8');
+                                self.send_response(200);
+                                self.send_header('Content-Type', 'application/json');
+                                self.send_header('Content-Length', str(len(ResponsePayload)));
+                                self.end_headers();
+                                self.wfile.write(ResponsePayload);
+
+                                return;
+
+                            AllExportedPaths: Set[str] = self.server.AccumulatedPaths;
+                            self.server.AccumulatedPaths = set();
+
+                        else:
+                            AllExportedPaths: Set[str] = set(ChunkPaths);
+
                         PrunedCount: int = 0;
 
                         for RootPath, Dirs, Files in os.walk(BasePath, topdown = False):

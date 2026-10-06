@@ -69,6 +69,13 @@ local LockedClasses: { [string]: boolean } = {
 	ChatInputBarConfiguration = true,
 	ChannelTabsConfiguration  = true,
 	BubbleChatConfiguration   = true,
+	PlayerGui                 = true,
+	PlayerScripts             = true,
+	Player                    = true,
+	CoreGui                   = true,
+	Backpack                  = true,
+	PlayerMouse               = true,
+	StarterGear               = true,
 };
 
 local function IsIrreplicable(ClassName: string): (boolean)
@@ -84,7 +91,11 @@ local function IsLockedInstance(Object: Instance?): (boolean)
 		return true;
 	end
 
-	if Object:IsA('Terrain') or Object:IsA('Camera') then
+	if Object:IsA('Terrain') or Object:IsA('Camera') or Object:IsA('Player') or Object:IsA('PlayerGui') or Object:IsA('PlayerScripts') or Object:IsA('Backpack') then
+		return true;
+	end
+
+	if Object:FindFirstAncestorOfClass('Player') or Object:FindFirstAncestorOfClass('CoreGui') then
 		return true;
 	end
 
@@ -160,6 +171,20 @@ local function IsPluginInternal(Object: Instance?): (boolean)
 	if not Object then return false end
 	if (Object == Root) or Object:IsDescendantOf(Root) then return true end
 
+	if (Object.Name == 'APIService') or (Object.Name == 'API') or Object:FindFirstAncestor('APIService') or Object:FindFirstAncestor('API') then
+		return true;
+	end
+
+	local SiliconAncestor: Instance? = Object:FindFirstAncestor('Silicon');
+
+	if SiliconAncestor and (SiliconAncestor:FindFirstChild('Synchronize') or SiliconAncestor:FindFirstChild('Create') or SiliconAncestor:FindFirstChild('Shared')) then
+		return true;
+	end
+
+	if (Object.Name == 'Silicon') and (Object:FindFirstChild('Synchronize') or Object:FindFirstChild('Create') or Object:FindFirstChild('Shared')) then
+		return true;
+	end
+
 	local ServiceSuccess: boolean, ServiceResult: any = pcall(function(): (Instance)
 		return game:GetService('ReplicatedStorage');
 	end);
@@ -169,7 +194,7 @@ local function IsPluginInternal(Object: Instance?): (boolean)
 	if not ReplicatedStorageInstance then return false end
 
 	local ConfiguredRootFolderName: string = (Settings.RootFolderName or RootFolderName or 'Silicon');
-	local ConfiguredPluginFolderName: string = (Settings.PluginFolderName or PluginFolderName or 'Silicon');
+	local ConfiguredPluginFolderName: string = (Settings.PluginFolderName or PluginFolderName or 'Plugin');
 
 	local ConfiguredRoot: Instance? = ReplicatedStorageInstance:FindFirstChild(ConfiguredRootFolderName);
 
@@ -185,11 +210,23 @@ local function IsPluginInternal(Object: Instance?): (boolean)
 		if LegacyPlugin and ((Object == LegacyPlugin) or Object:IsDescendantOf(LegacyPlugin)) then
 			return true;
 		end
+
+		local SiliconPlugin: Instance? = ConfiguredRoot:FindFirstChild('Silicon');
+
+		if SiliconPlugin and ((Object == SiliconPlugin) or Object:IsDescendantOf(SiliconPlugin)) then
+			return true;
+		end
 	end
 
 	local DirectPluginFolder: Instance? = ReplicatedStorageInstance:FindFirstChild(ConfiguredPluginFolderName);
 
 	if DirectPluginFolder and ((Object == DirectPluginFolder) or Object:IsDescendantOf(DirectPluginFolder)) then
+		return true;
+	end
+
+	local LegacyRootPlugin: Instance? = ReplicatedStorageInstance:FindFirstChild('Plugin');
+
+	if LegacyRootPlugin and ((Object == LegacyRootPlugin) or Object:IsDescendantOf(LegacyRootPlugin)) then
 		return true;
 	end
 
@@ -247,8 +284,12 @@ end
 local function IsIgnored(Object: Instance): (boolean)
 	if IsPluginInternal(Object) then return true end
 	if IsRecycleBinInstance(Object) then return true end
+	if IsLockedInstance(Object) then return true end
 
 	if Object:FindFirstAncestorOfClass('CoreGui') then return true end
+	if Object:FindFirstAncestorOfClass('Player') then return true end
+
+	if Object:IsA('PlayerGui') or Object:IsA('PlayerScripts') or Object:IsA('Backpack') or Object:IsA('Player') then return true end
 
 	if not Object:IsDescendantOf(game) and (Object ~= game) then return true end
 
@@ -943,29 +984,41 @@ local function EnsureInstanceHierarchy(RelativePath: string, ClassName: string):
 
 	if TargetChild then
 		if (TargetChild.ClassName ~= ClassName) and not IsLockedInstance(TargetChild) then
-			local ReplacementInstance: Instance = Instance.new(ClassName);
+			local ReplacementSuccess: boolean, ReplacementResult: any = pcall(function(): (Instance)
+				local ReplacementInstance: Instance = Instance.new(ClassName);
 
-			ReplacementInstance.Name = TargetName;
+				ReplacementInstance.Name = TargetName;
 
-			for _: number, ChildOfOld: Instance in TargetChild:GetChildren() do
-				ChildOfOld.Parent = ReplacementInstance;
-			end
+				for _: number, ChildOfOld: Instance in TargetChild:GetChildren() do
+					if not IsLockedInstance(ChildOfOld) then
+						pcall(function(): ()
+							ChildOfOld.Parent = ReplacementInstance;
+						end);
+					end
+				end
 
-			ReplacementInstance.Parent = CurrentInstance;
+				ReplacementInstance.Parent = CurrentInstance;
 
-			pcall(function(): ()
-				TargetChild:Destroy();
+				pcall(function(): ()
+					TargetChild:Destroy();
+				end);
+
+				return ReplacementInstance;
 			end);
 
-			TargetChild = ReplacementInstance;
+			if ReplacementSuccess and ReplacementResult then
+				TargetChild = ReplacementResult;
+			end
 		end
 	else
-		local NewInstance: Instance = Instance.new(ClassName);
+		pcall(function(): ()
+			local NewInstance: Instance = Instance.new(ClassName);
 
-		NewInstance.Name = TargetName;
-		NewInstance.Parent = CurrentInstance;
+			NewInstance.Name = TargetName;
+			NewInstance.Parent = CurrentInstance;
 
-		TargetChild = NewInstance;
+			TargetChild = NewInstance;
+		end);
 	end
 
 	return TargetChild;
@@ -1230,8 +1283,11 @@ end
 
 
 return setmetatable({
-	Import                 = Import,
-	ApplyIncrementalChange = ApplyIncrementalChange,
+	Import                     = Import,
+	ApplyIncrementalChange     = ApplyIncrementalChange,
+	EnsureInstanceHierarchy    = EnsureInstanceHierarchy,
+	ApplyPropertiesToObject    = ApplyPropertiesToObject,
+	FindInstanceByRelativePath = FindInstanceByRelativePath,
 }, {
 	__call = function(_: any, IsLIVE: boolean?): ()
 		Import(IsLIVE);

@@ -79,6 +79,20 @@ local function IsPluginInternal(Object: Instance?): (boolean)
 	if not Object then return false end
 	if (Object == Root) or Object:IsDescendantOf(Root) then return true end
 
+	if (Object.Name == 'APIService') or (Object.Name == 'API') or Object:FindFirstAncestor('APIService') or Object:FindFirstAncestor('API') then
+		return true;
+	end
+
+	local SiliconAncestor: Instance? = Object:FindFirstAncestor('Silicon');
+
+	if SiliconAncestor and (SiliconAncestor:FindFirstChild('Synchronize') or SiliconAncestor:FindFirstChild('Create') or SiliconAncestor:FindFirstChild('Shared')) then
+		return true;
+	end
+
+	if (Object.Name == 'Silicon') and (Object:FindFirstChild('Synchronize') or Object:FindFirstChild('Create') or Object:FindFirstChild('Shared')) then
+		return true;
+	end
+
 	local ServiceSuccess: boolean, ServiceResult: any = pcall(function(): (Instance)
 		return game:GetService('ReplicatedStorage');
 	end);
@@ -88,7 +102,7 @@ local function IsPluginInternal(Object: Instance?): (boolean)
 	if not ReplicatedStorageInstance then return false end
 
 	local ConfiguredRootFolderName: string = (Settings.RootFolderName or RootFolderName or 'Silicon');
-	local ConfiguredPluginFolderName: string = (Settings.PluginFolderName or PluginFolderName or 'Silicon');
+	local ConfiguredPluginFolderName: string = (Settings.PluginFolderName or PluginFolderName or 'Plugin');
 
 	local ConfiguredRoot: Instance? = ReplicatedStorageInstance:FindFirstChild(ConfiguredRootFolderName);
 
@@ -102,6 +116,12 @@ local function IsPluginInternal(Object: Instance?): (boolean)
 		local LegacyPlugin: Instance? = ConfiguredRoot:FindFirstChild('Plugin');
 
 		if LegacyPlugin and ((Object == LegacyPlugin) or Object:IsDescendantOf(LegacyPlugin)) then
+			return true;
+		end
+
+		local SiliconPlugin: Instance? = ConfiguredRoot:FindFirstChild('Silicon');
+
+		if SiliconPlugin and ((Object == SiliconPlugin) or Object:IsDescendantOf(SiliconPlugin)) then
 			return true;
 		end
 	end
@@ -125,10 +145,13 @@ local function IsIgnored(Object: Instance): (boolean)
 	if IsPluginInternal(Object) then return true end
 
 	if Object:FindFirstAncestorOfClass('CoreGui') then return true end
+	if Object:FindFirstAncestorOfClass('Player') then return true end
+
+	if Object:IsA('PlayerGui') or Object:IsA('PlayerScripts') or Object:IsA('Backpack') or Object:IsA('Player') then return true end
 
 	if not Object:IsDescendantOf(game) and (Object ~= game) then return true end
 
-	if Object:IsA('Terrain') then return true end
+	if Object:IsA('Terrain') or Object:IsA('Camera') then return true end
 
 	for _: number, IgnoredName: string in IgnoredAncestors do
 		if (Object.Name == IgnoredName) or Object:FindFirstAncestor(IgnoredName) then
@@ -317,7 +340,6 @@ local function ExportSingleObject(Object: Instance, IsDeleted: boolean?): ()
 		source     = (ObjectData.source),
 		scriptType = (ObjectData.scriptType),
 		objects    = { ObjectData },
-		scripts    = { ObjectData },
 	});
 
 	pcall(function(): ()
@@ -494,11 +516,56 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 		return;
 	end
 
-	local MaxBatchBytes: number = 300000;
+	local MaxBatchBytes: number = 250000;
 	local AllExportedPaths: { [number]: string } = { };
 	local CurrentBatch: { [number]: { [string]: any } } = { };
 	local CurrentBatchSize: number = 0;
 	local ExportedTotal: number = 0;
+
+	local function FlushBatch(BatchToSend: { [number]: { [string]: any } }): ()
+		if (#BatchToSend == 0) then return end
+
+		local BatchPayload: string = HTTP:JSONEncode({
+			path    = 'batch',
+			action  = 'batch',
+			objects = BatchToSend,
+		});
+
+		if (#BatchPayload > 750000) and (#BatchToSend > 1) then
+			local MidPoint: number = math.floor(#BatchToSend / 2);
+			local FirstHalf: { [number]: { [string]: any } } = { };
+			local SecondHalf: { [number]: { [string]: any } } = { };
+
+			for HalfIndex: number = 1, MidPoint do
+				table.insert(FirstHalf, BatchToSend[HalfIndex]);
+			end
+
+			for HalfIndex: number = (MidPoint + 1), #BatchToSend do
+				table.insert(SecondHalf, BatchToSend[HalfIndex]);
+			end
+
+			FlushBatch(FirstHalf);
+			FlushBatch(SecondHalf);
+
+			return;
+		end
+
+		local BatchSuccess: boolean, BatchResponse: string? = pcall(function(): (string)
+			return HTTP:PostAsync(TargetURL, BatchPayload, (Enum.HttpContentType.ApplicationJson));
+		end);
+
+		if BatchSuccess then
+			ExportedTotal += #BatchToSend;
+
+			print(`[Silicon Export] Exported batch ({ExportedTotal}/{ObjectCount}) objects to IDE.`);
+		else
+			warn(`[Silicon Export] Failed exporting batch to IDE: {BatchResponse}`);
+		end
+
+		task.wait();
+
+		return;
+	end
 
 	for _: number, ObjectData: { [string]: any } in ObjectsToExport do
 		table.insert(AllExportedPaths, ObjectData.path);
@@ -508,27 +575,10 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 
 		if (ItemLength > MaxBatchBytes) and ObjectData.source then
 			if (#CurrentBatch > 0) then
-				local BatchPayload: string = HTTP:JSONEncode({
-					path    = 'batch',
-					action  = 'batch',
-					objects = CurrentBatch,
-					scripts = CurrentBatch,
-				});
-
-				local BatchSuccess: boolean, BatchResponse: string? = pcall(function(): (string)
-					return HTTP:PostAsync(TargetURL, BatchPayload, (Enum.HttpContentType.ApplicationJson));
-				end);
-
-				if BatchSuccess then
-					ExportedTotal += #CurrentBatch;
-					print(`[Silicon Export] Exported batch ({ExportedTotal}/{ObjectCount}) objects to IDE.`);
-				else
-					warn(`[Silicon Export] Failed exporting batch to IDE: {BatchResponse}`);
-				end
+				FlushBatch(CurrentBatch);
 
 				CurrentBatch = { };
 				CurrentBatchSize = 0;
-				task.wait();
 			end
 
 			local FullSource: string = (ObjectData.source :: string);
@@ -566,55 +616,27 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 			end
 
 			ExportedTotal += 1;
+
 			print(`[Silicon Export] Exported large object ({ExportedTotal}/{ObjectCount}) <{ObjectData.path}> in {TotalChunks} chunks to IDE.`);
 		else
 			if (((CurrentBatchSize + ItemLength) > MaxBatchBytes) and (#CurrentBatch > 0)) then
-				local BatchPayload: string = HTTP:JSONEncode({
-					path    = 'batch',
-					action  = 'batch',
-					objects = CurrentBatch,
-					scripts = CurrentBatch,
-				});
-
-				local BatchSuccess: boolean, BatchResponse: string? = pcall(function(): (string)
-					return HTTP:PostAsync(TargetURL, BatchPayload, (Enum.HttpContentType.ApplicationJson));
-				end);
-
-				if BatchSuccess then
-					ExportedTotal += #CurrentBatch;
-					print(`[Silicon Export] Exported batch ({ExportedTotal}/{ObjectCount}) objects to IDE.`);
-				else
-					warn(`[Silicon Export] Failed exporting batch to IDE: {BatchResponse}`);
-				end
+				FlushBatch(CurrentBatch);
 
 				CurrentBatch = { };
 				CurrentBatchSize = 0;
-				task.wait();
 			end
 
 			table.insert(CurrentBatch, ObjectData);
+
 			CurrentBatchSize += ItemLength;
 		end
 	end
 
 	if (#CurrentBatch > 0) then
-		local FinalBatchPayload: string = HTTP:JSONEncode({
-			path    = 'batch',
-			action  = 'batch',
-			objects = CurrentBatch,
-			scripts = CurrentBatch,
-		});
+		FlushBatch(CurrentBatch);
 
-		local FinalBatchSuccess: boolean, FinalBatchResponse: string? = pcall(function(): (string)
-			return HTTP:PostAsync(TargetURL, FinalBatchPayload, (Enum.HttpContentType.ApplicationJson));
-		end);
-
-		if FinalBatchSuccess then
-			ExportedTotal += #CurrentBatch;
-			print(`[Silicon Export] Exported batch ({ExportedTotal}/{ObjectCount}) objects to IDE.`);
-		else
-			warn(`[Silicon Export] Failed exporting batch to IDE: {FinalBatchResponse}`);
-		end
+		CurrentBatch = { };
+		CurrentBatchSize = 0;
 	end
 
 	local FinalizePayload: string = HTTP:JSONEncode({
@@ -623,9 +645,38 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 		received_paths = AllExportedPaths,
 	});
 
-	pcall(function(): ()
-		HTTP:PostAsync(TargetURL, FinalizePayload, (Enum.HttpContentType.ApplicationJson));
-	end);
+	if (#FinalizePayload > 750000) then
+		local PathBatchSize: number = 2000;
+		local TotalPathBatches: number = math.ceil(#AllExportedPaths / PathBatchSize);
+
+		for PathBatchIndex: number = 1, TotalPathBatches do
+			local StartIndex: number = (((PathBatchIndex - 1) * PathBatchSize) + 1);
+			local EndIndex: number = math.min((PathBatchIndex * PathBatchSize), #AllExportedPaths);
+			local PathsSlice: { [number]: string } = { };
+
+			for SliceIndex: number = StartIndex, EndIndex do
+				table.insert(PathsSlice, AllExportedPaths[SliceIndex]);
+			end
+
+			local ChunkedFinalizePayload: string = HTTP:JSONEncode({
+				path           = 'finalize_synchronization',
+				action         = 'finalize_synchronization',
+				received_paths = PathsSlice,
+				is_chunk       = true,
+				is_final       = (PathBatchIndex == TotalPathBatches),
+			});
+
+			pcall(function(): ()
+				HTTP:PostAsync(TargetURL, ChunkedFinalizePayload, (Enum.HttpContentType.ApplicationJson));
+			end);
+
+			task.wait();
+		end
+	else
+		pcall(function(): ()
+			HTTP:PostAsync(TargetURL, FinalizePayload, (Enum.HttpContentType.ApplicationJson));
+		end);
+	end
 
 	print(`[Silicon Export] Successfully exported {ExportedTotal} object{(ExportedTotal ~= 1) and 's' or ''} to IDE!`);
 
