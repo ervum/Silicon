@@ -311,21 +311,451 @@ local function GetOrCreateRecycleBin(): (Instance)
 	return (Bin :: Instance);
 end
 
-local function DecodePropertyValue(Value: any, PropertyName: string?): (any)
+local function ExtractNumbersFromString(RawString: string): ({ [number]: number })
+	local ExtractedNumbers: { [number]: number } = { };
+	local SanitizedString: string = string.gsub(string.gsub(RawString, '[{}()]', ' '), ',', ' ');
+
+	for Token: string in string.gmatch(SanitizedString, '%S+') do
+		local ParsedNumber: number? = tonumber(Token);
+
+		if (ParsedNumber ~= nil) then
+			table.insert(ExtractedNumbers, ParsedNumber);
+		end
+	end
+
+	return ExtractedNumbers;
+end
+
+local StringDeserializers: { [string]: ((string, any?, Instance?, string?) -> (any)) } = {
+	['CFrame'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		local Numbers: { [number]: number } = ExtractNumbersFromString(RawString);
+
+		if (#Numbers == 12) then
+			return CFrame.new(table.unpack(Numbers));
+		elseif (#Numbers == 3) then
+			return CFrame.new(Numbers[1], Numbers[2], Numbers[3]);
+		elseif (#Numbers == 7) then
+			return CFrame.new(Numbers[1], Numbers[2], Numbers[3], Numbers[4], Numbers[5], Numbers[6], Numbers[7]);
+		end
+
+		return nil;
+	end,
+
+	['Vector3'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		local Numbers: { [number]: number } = ExtractNumbersFromString(RawString);
+
+		if (#Numbers >= 3) then
+			return Vector3.new(Numbers[1], Numbers[2], Numbers[3]);
+		elseif (#Numbers == 1) then
+			return Vector3.new(Numbers[1], Numbers[1], Numbers[1]);
+		end
+
+		return nil;
+	end,
+
+	['Vector2'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		local Numbers: { [number]: number } = ExtractNumbersFromString(RawString);
+
+		if (#Numbers >= 2) then
+			return Vector2.new(Numbers[1], Numbers[2]);
+		elseif (#Numbers == 1) then
+			return Vector2.new(Numbers[1], Numbers[1]);
+		end
+
+		return nil;
+	end,
+
+	['Color3'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		local Trimmed: string = string.gsub(RawString, '^%s*(.-)%s*$', '%1');
+
+		if (string.sub(Trimmed, 1, 1) == '#') then
+			local HexSuccess: boolean, HexColor: any = pcall(function(): (Color3)
+				return Color3.fromHex(Trimmed);
+			end);
+
+			if HexSuccess and HexColor then
+				return HexColor;
+			end
+		end
+
+		local Numbers: { [number]: number } = ExtractNumbersFromString(RawString);
+
+		if (#Numbers >= 3) then
+			if (Numbers[1] > 1.0) or (Numbers[2] > 1.0) or (Numbers[3] > 1.0) then
+				return Color3.fromRGB(Numbers[1], Numbers[2], Numbers[3]);
+			else
+				return Color3.new(Numbers[1], Numbers[2], Numbers[3]);
+			end
+		end
+
+		return nil;
+	end,
+
+	['UDim2'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		local Numbers: { [number]: number } = ExtractNumbersFromString(RawString);
+
+		if (#Numbers >= 4) then
+			return UDim2.new(Numbers[1], Numbers[2], Numbers[3], Numbers[4]);
+		elseif (#Numbers == 2) then
+			return UDim2.new(Numbers[1], 0, Numbers[2], 0);
+		end
+
+		return nil;
+	end,
+
+	['UDim'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		local Numbers: { [number]: number } = ExtractNumbersFromString(RawString);
+
+		if (#Numbers >= 2) then
+			return UDim.new(Numbers[1], Numbers[2]);
+		elseif (#Numbers == 1) then
+			return UDim.new(Numbers[1], 0);
+		end
+
+		return nil;
+	end,
+
+	['Rect'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		local Numbers: { [number]: number } = ExtractNumbersFromString(RawString);
+
+		if (#Numbers >= 4) then
+			return Rect.new(Numbers[1], Numbers[2], Numbers[3], Numbers[4]);
+		end
+
+		return nil;
+	end,
+
+	['NumberRange'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		local Numbers: { [number]: number } = ExtractNumbersFromString(RawString);
+
+		if (#Numbers >= 2) then
+			return NumberRange.new(Numbers[1], Numbers[2]);
+		elseif (#Numbers == 1) then
+			return NumberRange.new(Numbers[1]);
+		end
+
+		return nil;
+	end,
+
+	['NumberSequence'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		local Numbers: { [number]: number } = ExtractNumbersFromString(RawString);
+
+		if (#Numbers == 1) then
+			return NumberSequence.new(Numbers[1]);
+		elseif (#Numbers == 2) then
+			return NumberSequence.new(Numbers[1], Numbers[2]);
+		elseif ((#Numbers % 2) == 0) and (#Numbers >= 4) then
+			local Keypoints: { [number]: NumberSequenceKeypoint } = { };
+
+			for Index: number = 1, #Numbers, 2 do
+				table.insert(Keypoints, NumberSequenceKeypoint.new(Numbers[Index], Numbers[(Index + 1)]));
+			end
+
+			local SequenceSuccess: boolean, SequenceResult: any = pcall(function(): (NumberSequence)
+				return NumberSequence.new(Keypoints);
+			end);
+
+			if SequenceSuccess and SequenceResult then
+				return SequenceResult;
+			end
+		end
+
+		return nil;
+	end,
+
+	['ColorSequence'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		local Trimmed: string = string.gsub(RawString, '^%s*(.-)%s*$', '%1');
+
+		if (string.sub(Trimmed, 1, 1) == '#') then
+			local HexSuccess: boolean, HexColor: any = pcall(function(): (Color3)
+				return Color3.fromHex(Trimmed);
+			end);
+
+			if HexSuccess and HexColor then
+				return ColorSequence.new(HexColor);
+			end
+		end
+
+		local Numbers: { [number]: number } = ExtractNumbersFromString(RawString);
+
+		if (#Numbers >= 3) then
+			local SingleColor: Color3 = ((Numbers[1] > 1.0) or (Numbers[2] > 1.0) or (Numbers[3] > 1.0))
+				and Color3.fromRGB(Numbers[1], Numbers[2], Numbers[3])
+				or Color3.new(Numbers[1], Numbers[2], Numbers[3]);
+
+			return ColorSequence.new(SingleColor);
+		end
+
+		return nil;
+	end,
+
+	['BrickColor'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		local Trimmed: string = string.gsub(RawString, '^%s*(.-)%s*$', '%1');
+		local ParsedNumber: number? = tonumber(Trimmed);
+
+		if (ParsedNumber ~= nil) then
+			local NumSuccess: boolean, NumResult: any = pcall(function(): (BrickColor)
+				return BrickColor.new(ParsedNumber :: number);
+			end);
+
+			if NumSuccess and NumResult then
+				return NumResult;
+			end
+		end
+
+		local StrSuccess: boolean, StrResult: any = pcall(function(): (BrickColor)
+			return BrickColor.new(Trimmed);
+		end);
+
+		if StrSuccess and StrResult then
+			return StrResult;
+		end
+
+		return nil;
+	end,
+
+	['EnumItem'] = function(RawString: string, CurrentValue: any?, _: Instance?, PropertyName: string?): (any)
+		local Trimmed: string = string.gsub(RawString, '^%s*(.-)%s*$', '%1');
+
+		if CurrentValue and (typeof(CurrentValue) == 'EnumItem') then
+			local TargetEnumType: any = CurrentValue.EnumType;
+
+			if TargetEnumType then
+				local ItemName: string = Trimmed;
+
+				if string.find(ItemName, '.', 1, true) then
+					local Segments: { [number]: string } = string.split(ItemName, '.');
+					ItemName = Segments[#Segments];
+				end
+
+				if TargetEnumType[ItemName] then
+					return TargetEnumType[ItemName];
+				end
+			end
+		end
+
+		if string.find(Trimmed, '^Enum%.') then
+			local Segments: { [number]: string } = string.split(Trimmed, '.');
+
+			if (#Segments >= 3) then
+				local EnumTypeGroup: any = (Enum :: any)[Segments[2]];
+
+				if EnumTypeGroup and EnumTypeGroup[Segments[3]] then
+					return EnumTypeGroup[Segments[3]];
+				end
+			end
+		end
+
+		if PropertyName then
+			local EnumTypeGroup: any = (Enum :: any)[PropertyName];
+
+			if EnumTypeGroup and EnumTypeGroup[Trimmed] then
+				return EnumTypeGroup[Trimmed];
+			end
+		end
+
+		return nil;
+	end,
+
+	['PhysicalProperties'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		local Numbers: { [number]: number } = ExtractNumbersFromString(RawString);
+
+		if (#Numbers >= 5) then
+			return PhysicalProperties.new(Numbers[1], Numbers[2], Numbers[3], Numbers[4], Numbers[5]);
+		elseif (#Numbers >= 3) then
+			return PhysicalProperties.new(Numbers[1], Numbers[2], Numbers[3]);
+		end
+
+		return nil;
+	end,
+
+	['Ray'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		local Numbers: { [number]: number } = ExtractNumbersFromString(RawString);
+
+		if (#Numbers >= 6) then
+			return Ray.new(
+				Vector3.new(Numbers[1], Numbers[2], Numbers[3]),
+				Vector3.new(Numbers[4], Numbers[5], Numbers[6])
+			);
+		end
+
+		return nil;
+	end,
+
+	['boolean'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		local Lower: string = string.lower(string.gsub(RawString, '^%s*(.-)%s*$', '%1'));
+
+		if (Lower == 'true') or (Lower == '1') or (Lower == 'yes') then
+			return true;
+		elseif (Lower == 'false') or (Lower == '0') or (Lower == 'no') then
+			return false;
+		end
+
+		return nil;
+	end,
+
+	['number'] = function(RawString: string, _: any?, _: Instance?, _: string?): (any)
+		return tonumber(string.gsub(RawString, '^%s*(.-)%s*$', '%1'));
+	end,
+};
+
+local function DecodePropertyValue(Value: any, PropertyName: string?, TargetObject: Instance?): (any)
 	if (Value == nil) then return nil end
 
+	---> Step 1: Check legacy APIService JSON-encoded tuples ({ source, id, type })
 	local DecodedAttempt: boolean, DecodedResult: any = pcall(function(): (any)
 		return APIService:JSONDecodeValue(Value);
 	end);
 
-	if DecodedAttempt and (DecodedResult ~= nil) then
+	if DecodedAttempt and (DecodedResult ~= nil) and (DecodedResult ~= Value) then
 		return DecodedResult;
 	end
 
-	if (type(Value) == 'table') then
-		if (#Value == 3) and (type(Value[1]) == 'number') and (type(Value[2]) == 'number') and (type(Value[3]) == 'number') then
+	---> Step 2: Determine expected property type from target object if available
+	local TargetType: string? = nil;
+	local CurrentPropertyValue: any = nil;
+
+	if TargetObject and PropertyName then
+		local ReadSuccess: boolean, ReadResult: any = pcall(function(): (any)
+			return (TargetObject :: any)[PropertyName];
+		end);
+
+		if ReadSuccess and (ReadResult ~= nil) then
+			CurrentPropertyValue = ReadResult;
+			TargetType = typeof(ReadResult);
+		end
+	end
+
+	---> Step 3: String deserialization via dedicated converter dispatcher
+	if (type(Value) == 'string') then
+		local RawString: string = Value;
+
+		if TargetType and StringDeserializers[TargetType] then
+			local ConvertedValue: any = StringDeserializers[TargetType](RawString, CurrentPropertyValue, TargetObject, PropertyName);
+
+			if (ConvertedValue ~= nil) then
+				return ConvertedValue;
+			end
+		end
+
+		---> Fallback heuristics when TargetType was not resolved
+		local TrimmedString: string = string.gsub(RawString, '^%s*(.-)%s*$', '%1');
+
+		if string.find(TrimmedString, '^Enum%.') then
+			local EnumResult: any = StringDeserializers.EnumItem(TrimmedString, nil, TargetObject, PropertyName);
+
+			if (EnumResult ~= nil) then
+				return EnumResult;
+			end
+		end
+
+		if (string.sub(TrimmedString, 1, 1) == '#') then
+			local HexColor: any = StringDeserializers.Color3(TrimmedString, nil, TargetObject, PropertyName);
+
+			if (HexColor ~= nil) then
+				return HexColor;
+			end
+		end
+
+		if string.find(TrimmedString, '^{.*},%s*{.*}$') then
+			local UDim2Result: any = StringDeserializers.UDim2(TrimmedString, nil, TargetObject, PropertyName);
+
+			if (UDim2Result ~= nil) then
+				return UDim2Result;
+			end
+		end
+
+		if string.find(TrimmedString, '^{.*}$') then
+			local UDimResult: any = StringDeserializers.UDim(TrimmedString, nil, TargetObject, PropertyName);
+
+			if (UDimResult ~= nil) then
+				return UDimResult;
+			end
+		end
+
+		local ExtractedNumbers: { [number]: number } = ExtractNumbersFromString(RawString);
+		local ExtractedCount: number = #ExtractedNumbers;
+
+		if (ExtractedCount == 12) then
+			return CFrame.new(table.unpack(ExtractedNumbers));
+		elseif (ExtractedCount == 4) then
+			if PropertyName and (string.find(PropertyName, 'Rect') ~= nil) then
+				return Rect.new(table.unpack(ExtractedNumbers));
+			else
+				return UDim2.new(table.unpack(ExtractedNumbers));
+			end
+		elseif (ExtractedCount == 3) then
 			if PropertyName and (string.find(PropertyName, 'Color') ~= nil) then
-				if (Value[1] > 1) or (Value[2] > 1) or (Value[3] > 1) then
+				if (ExtractedNumbers[1] > 1.0) or (ExtractedNumbers[2] > 1.0) or (ExtractedNumbers[3] > 1.0) then
+					return Color3.fromRGB(ExtractedNumbers[1], ExtractedNumbers[2], ExtractedNumbers[3]);
+				else
+					return Color3.new(ExtractedNumbers[1], ExtractedNumbers[2], ExtractedNumbers[3]);
+				end
+			else
+				return Vector3.new(ExtractedNumbers[1], ExtractedNumbers[2], ExtractedNumbers[3]);
+			end
+		elseif (ExtractedCount == 2) then
+			if PropertyName and ((string.find(PropertyName, 'Range') ~= nil) or (string.find(PropertyName, 'Lifetime') ~= nil)) then
+				return NumberRange.new(ExtractedNumbers[1], ExtractedNumbers[2]);
+			elseif PropertyName and (string.find(PropertyName, 'Padding') ~= nil) then
+				return UDim.new(ExtractedNumbers[1], ExtractedNumbers[2]);
+			else
+				return Vector2.new(ExtractedNumbers[1], ExtractedNumbers[2]);
+			end
+		end
+
+		if PropertyName then
+			local EnumResult: any = StringDeserializers.EnumItem(TrimmedString, nil, TargetObject, PropertyName);
+
+			if (EnumResult ~= nil) then
+				return EnumResult;
+			end
+		end
+	end
+
+	---> Step 4: Table deserialization (JSON / YAML numeric arrays and dictionaries)
+	if (type(Value) == 'table') then
+		local TableLength: number = #Value;
+
+		if (TargetType == 'CFrame') then
+			if (TableLength == 12) then
+				return CFrame.new(table.unpack(Value));
+			elseif (TableLength == 3) then
+				return CFrame.new(Value[1], Value[2], Value[3]);
+			end
+		end
+
+		if (TargetType == 'Vector3') and (TableLength >= 3) then
+			return Vector3.new(Value[1], Value[2], Value[3]);
+		end
+
+		if (TargetType == 'Color3') and (TableLength >= 3) then
+			if (Value[1] > 1.0) or (Value[2] > 1.0) or (Value[3] > 1.0) then
+				return Color3.fromRGB(Value[1], Value[2], Value[3]);
+			else
+				return Color3.new(Value[1], Value[2], Value[3]);
+			end
+		end
+
+		if (TargetType == 'UDim2') and (TableLength >= 4) then
+			return UDim2.new(Value[1], Value[2], Value[3], Value[4]);
+		end
+
+		if (TargetType == 'UDim') and (TableLength >= 2) then
+			return UDim.new(Value[1], Value[2]);
+		end
+
+		if (TargetType == 'Vector2') and (TableLength >= 2) then
+			return Vector2.new(Value[1], Value[2]);
+		end
+
+		if (TargetType == 'NumberRange') and (TableLength >= 2) then
+			return NumberRange.new(Value[1], Value[2]);
+		end
+
+		if (TableLength == 3) and (type(Value[1]) == 'number') and (type(Value[2]) == 'number') and (type(Value[3]) == 'number') then
+			if PropertyName and (string.find(PropertyName, 'Color') ~= nil) then
+				if (Value[1] > 1.0) or (Value[2] > 1.0) or (Value[3] > 1.0) then
 					return Color3.fromRGB(Value[1], Value[2], Value[3]);
 				else
 					return Color3.new(Value[1], Value[2], Value[3]);
@@ -335,7 +765,7 @@ local function DecodePropertyValue(Value: any, PropertyName: string?): (any)
 			end
 		end
 
-		if (#Value == 12) then
+		if (TableLength == 12) then
 			local AllNumbers: boolean = true;
 
 			for _: number, NumericVal: any in Value do
@@ -350,6 +780,24 @@ local function DecodePropertyValue(Value: any, PropertyName: string?): (any)
 			end
 		end
 
+		if (TableLength == 4) and (type(Value[1]) == 'number') and (type(Value[2]) == 'number') and (type(Value[3]) == 'number') and (type(Value[4]) == 'number') then
+			if PropertyName and (string.find(PropertyName, 'Rect') ~= nil) then
+				return Rect.new(Value[1], Value[2], Value[3], Value[4]);
+			else
+				return UDim2.new(Value[1], Value[2], Value[3], Value[4]);
+			end
+		end
+
+		if (TableLength == 2) and (type(Value[1]) == 'number') and (type(Value[2]) == 'number') then
+			if PropertyName and ((string.find(PropertyName, 'Range') ~= nil) or (string.find(PropertyName, 'Lifetime') ~= nil)) then
+				return NumberRange.new(Value[1], Value[2]);
+			elseif PropertyName and (string.find(PropertyName, 'Padding') ~= nil) then
+				return UDim.new(Value[1], Value[2]);
+			else
+				return Vector2.new(Value[1], Value[2]);
+			end
+		end
+
 		if Value.X and Value.Y and Value.Z and (type(Value.X) == 'number') and (type(Value.Y) == 'number') and (type(Value.Z) == 'number') then
 			return Vector3.new(Value.X, Value.Y, Value.Z);
 		end
@@ -357,21 +805,13 @@ local function DecodePropertyValue(Value: any, PropertyName: string?): (any)
 		if Value.R and Value.G and Value.B and (type(Value.R) == 'number') and (type(Value.G) == 'number') and (type(Value.B) == 'number') then
 			return Color3.new(Value.R, Value.G, Value.B);
 		end
-	end
 
-	if (type(Value) == 'string') and PropertyName then
-		local EnumLookupSuccess: boolean, FoundEnumItem: any = pcall(function(): (any)
-			local TargetEnumType: any = (Enum :: any)[PropertyName];
+		if Value.Scale and Value.Offset and (type(Value.Scale) == 'number') and (type(Value.Offset) == 'number') then
+			return UDim.new(Value.Scale, Value.Offset);
+		end
 
-			if TargetEnumType and TargetEnumType[Value] then
-				return TargetEnumType[Value];
-			end
-
-			return nil;
-		end);
-
-		if EnumLookupSuccess and (FoundEnumItem ~= nil) then
-			return FoundEnumItem;
+		if Value.Min and Value.Max and (type(Value.Min) == 'number') and (type(Value.Max) == 'number') then
+			return NumberRange.new(Value.Min, Value.Max);
 		end
 	end
 
@@ -381,11 +821,15 @@ end
 local function ApplyPropertiesToObject(Object: Instance, Properties: { [string]: any }?, Attributes: { [string]: any }?, Tags: { [number]: string }?): ()
 	if Properties then
 		for PropertyName: string, RawValue: any in Properties do
-			if (PropertyName == 'Name') or (PropertyName == 'Parent') or (PropertyName == 'Source') or (PropertyName == 'BrickColor') then
+			if (PropertyName == 'Name') or (PropertyName == 'Parent') or (PropertyName == 'Source') then
 				continue;
 			end
 
-			local DecodedValue: any = DecodePropertyValue(RawValue, PropertyName);
+			if (PropertyName == 'BrickColor') and (Properties.Color ~= nil) then
+				continue;
+			end
+
+			local DecodedValue: any = DecodePropertyValue(RawValue, PropertyName, Object);
 
 			if (DecodedValue ~= nil) then
 				pcall(function(): ()
@@ -397,7 +841,7 @@ local function ApplyPropertiesToObject(Object: Instance, Properties: { [string]:
 
 	if Attributes then
 		for AttributeKey: string, RawAttrValue: any in Attributes do
-			local DecodedAttr: any = DecodePropertyValue(RawAttrValue, nil);
+			local DecodedAttr: any = DecodePropertyValue(RawAttrValue, nil, Object);
 
 			pcall(function(): ()
 				Object:SetAttribute(AttributeKey, DecodedAttr);
