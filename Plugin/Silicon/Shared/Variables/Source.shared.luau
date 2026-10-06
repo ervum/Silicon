@@ -14,7 +14,7 @@ local PN: string, AN: string, TN: string = (Settings.PropertiesName), (Settings.
 
 
 local RootFolderName: string = (Settings.RootFolderName or 'Silicon');
-local PluginFolderName: string = (Settings.PluginFolderName or 'Silicon');
+local PluginFolderName: string = (Settings.PluginFolderName or 'Plugin');
 local RecycleBinFolderName: string = (Settings.RecycleBinFolderName or 'Recycle Bin');
 
 

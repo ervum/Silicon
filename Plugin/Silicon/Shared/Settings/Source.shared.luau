@@ -32,7 +32,7 @@ return {
 	ConflictMode                   = 'Local-authoritative', ---> 'Local-authoritative' | 'Studio-authoritative' | 'Merging'
 	
 	RootFolderName                 = 'Silicon',
-	PluginFolderName               = 'Silicon',
+	PluginFolderName               = 'Plugin',
 	RecycleBinFolderName           = 'Recycle Bin',
 	
 	IgnoredAncestors               = { },

@@ -113,7 +113,7 @@ ArgumentsForSubparsers: List[Tuple[str, str, Type, str]] = [
 OneTimeConnectionServerTypes: Set[str] = { 'Export', 'Import' };
 
 NoDataAvailableResponse: Dict[str, str] = { 'Status': 'No data available' };
-AliveResponse: Dict[str, str] = { 'Status': 'Alive', 'Server': 'Silicon', 'Version': '2.0.0' };
+AliveResponse: Dict[str, str] = { 'Status': 'Alive', 'Server': 'Silicon', 'Version': '0.0.0' };
 
 Server: Optional[ThreadingHTTPServer] = None;
 ServerThread: Optional[Thread] = None;
@@ -155,7 +155,7 @@ def IsPathIgnored(RelativePath: str) -> (bool):
             return True;
 
     RootFolderName: str = Settings.get('RootFolderName', Settings.get('RecycleBinParent', 'Silicon'));
-    PluginFolderName: str = Settings.get('PluginFolderName', 'Silicon');
+    PluginFolderName: str = Settings.get('PluginFolderName', 'Plugin');
     PluginFolderRelativePath: str = f'ReplicatedStorage/{RootFolderName}/{PluginFolderName}';
 
     if (NormalizedPath == PluginFolderRelativePath) or NormalizedPath.startswith(f'{PluginFolderRelativePath}/'):
@@ -862,6 +862,7 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                         Data = File.read();
 
                 if (RequestType == ExpectedStatusType) or (not RequestType and not Data):
+                    AliveResponse['Version'] = Settings.get('Version', '0.0.0');
                     StatusPayload: bytes = json.dumps(AliveResponse).encode('utf-8');
                     self.send_response(200);
                     self.send_header('Content-Type', 'application/json');
@@ -1128,7 +1129,7 @@ SourceFileName: str = f'{SN}.{(Settings.get("SourceFileExtension", "luau")).lowe
 UseYAML: bool = ('y' in PropertiesFileExtension);
 
 RootFolderName: str = Settings.get('RootFolderName', Settings.get('RecycleBinParent', 'Silicon'));
-PluginFolderName: str = Settings.get('PluginFolderName', 'Silicon');
+PluginFolderName: str = Settings.get('PluginFolderName', 'Plugin');
 RecycleBinFolderName: str = Settings.get('RecycleBinFolderName', Settings.get('RecycleBinName', 'Recycle Bin'));
 
 
