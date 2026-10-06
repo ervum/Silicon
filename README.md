@@ -109,7 +109,7 @@ Silicon structures synchronized Roblox hierarchies into an intuitive, modular on
 
 * **Studio Recycle Bin**: Deletions triggered by the IDE move instances to `ReplicatedStorage/Silicon/Recycle Bin` in Roblox Studio rather than permanently destroying them.
 * **System Recycle Bin**: Files deleted or pruned from the local workspace are safely sent to the operating system's Recycle Bin / Trash (`SendToRecycleBin`).
-* **Isolated Plugin Storage**: The running plugin installs and maintains a clean local copy at `ReplicatedStorage/Silicon/Silicon` (configurable via `RootFolderName` and `PluginFolderName` in `Settings.yaml`) that is strictly excluded from export to avoid self-referential clutter while allowing `ReplicatedStorage/Silicon/Recycle Bin` to sync smoothly.
+* **Isolated Plugin Storage**: The running plugin installs and maintains a clean local copy at `ReplicatedStorage/Silicon/Silicon` (configurable via `RootFolderName` and `PluginFolderName` in `Settings.yaml`) that is strictly excluded from export to avoid self-referential clutter while allowing `ReplicatedStorage/Silicon/Recycle Bin` to synchronize smoothly.
 
 ---
 

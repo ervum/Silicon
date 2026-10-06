@@ -1,6 +1,7 @@
 --!strict
 
 return {
+	Version                        = '0.0.0',
 	PropertiesName                 = 'Properties',
 	AttributesName                 = '__Attributes__',
 	TagsName                       = '__Tags__',
@@ -21,7 +22,8 @@ return {
 	
 	CleanUpBeforeImportInIDE       = true,
 	CleanUpBeforeImportInRS        = true,
-	SyncAllDescendants             = false,    ---> If false, only scripts and their direct ancestry are synced. If true, all place descendants are synced.
+	SynchronizeAllDescendants      = false,    ---> If false, only scripts and their direct ancestry are synchronized. If true, all place descendants are synchronized.
+	SyncAllDescendants             = false,
 	
 	SynchronizationIDEDebounceTime = 10.0,
 	SynchronizationRSDebounceTime  = 0.1,

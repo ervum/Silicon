@@ -147,15 +147,16 @@ end
 local function SynchronizeBidirectionalFromRoblox(): (RBXScriptConnection, RBXScriptConnection)
 	EnsurePluginCopy();
 
+	Settings.SynchronizeAllDescendants = false;
 	Settings.SyncAllDescendants = false;
 
-	Connect.PostSettings({ SyncAllDescendants = false });
+	Connect.PostSettings({ SynchronizeAllDescendants = false, SyncAllDescendants = false });
 
-	print('[Silicon] Performing initial export from Roblox Studio to IDE before starting Bidirectional sync...');
+	print('[Silicon] Performing initial export from Roblox Studio to IDE before starting Bidirectional synchronization...');
 
 	Export(nil, false);
 
-	print('[Silicon] Initial export completed. Starting Bidirectional live sync...');
+	print('[Silicon] Initial export completed. Starting Bidirectional live synchronization...');
 
 	return SynchronizeBidirectional();
 end
@@ -165,11 +166,12 @@ end
 local function SynchronizeBidirectionalFromIDE(): (RBXScriptConnection, RBXScriptConnection)
 	EnsurePluginCopy();
 
+	Settings.SynchronizeAllDescendants = false;
 	Settings.SyncAllDescendants = false;
 
-	Connect.PostSettings({ SyncAllDescendants = false });
+	Connect.PostSettings({ SynchronizeAllDescendants = false, SyncAllDescendants = false });
 
-	print('[Silicon] Performing initial import from IDE into Roblox Studio before starting Bidirectional sync...');
+	print('[Silicon] Performing initial import from IDE into Roblox Studio before starting Bidirectional synchronization...');
 
 	local ImportFunc: ((boolean?) -> ()) = (ImportModule.Import or ImportModule);
 
@@ -177,7 +179,7 @@ local function SynchronizeBidirectionalFromIDE(): (RBXScriptConnection, RBXScrip
 
 	EnsurePluginCopy();
 
-	print('[Silicon] Initial import completed. Starting Bidirectional live sync...');
+	print('[Silicon] Initial import completed. Starting Bidirectional live synchronization...');
 
 	return SynchronizeBidirectional();
 end
@@ -189,15 +191,16 @@ local function SynchronizeAllDescendants(): (RBXScriptConnection, RBXScriptConne
 
 	print('[Silicon] Initiating AllDescendants synchronization (all place descendants)...');
 
+	Settings.SynchronizeAllDescendants = true;
 	Settings.SyncAllDescendants = true;
 
-	Connect.PostSettings({ SyncAllDescendants = true });
+	Connect.PostSettings({ SynchronizeAllDescendants = true, SyncAllDescendants = true });
 
 	print('[Silicon] Performing initial export of ALL descendants from Roblox Studio to IDE...');
 
 	Export(nil, false);
 
-	print('[Silicon] Initial all-descendants export completed. Starting Bidirectional live sync...');
+	print('[Silicon] Initial all-descendants export completed. Starting Bidirectional live synchronization...');
 
 	return SynchronizeBidirectional();
 end

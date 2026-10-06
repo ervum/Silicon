@@ -37,6 +37,11 @@ local ActiveMethod: string? = nil;
 
 EnsurePluginCopy();
 
+local Settings: { [string]: any } = (Dependencies.Settings);
+local Version: string = (Settings.Version or '0.0.0');
+
+print(`[Silicon] Silicon Roblox Plugin v{Version} initialized!`);
+
 
 
 local function ToggleSynchronization(Method: string): ()

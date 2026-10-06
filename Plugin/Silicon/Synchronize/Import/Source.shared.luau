@@ -40,7 +40,7 @@ local APIService: { [string]: (( ... any) -> ( ... any)) } = require(Dependencie
 
 
 
-local SyncedServices: { [number]: string } = {
+local SynchronizedServices: { [number]: string } = {
 	'Workspace',
 	'ReplicatedStorage',
 	'ServerScriptService',
@@ -1082,14 +1082,15 @@ local function Import(IsLIVE: boolean?): ()
 
 	IsLIVE = (IsLIVE == true);
 
-	local LocalSyncAllDescendants: boolean? = Settings.SyncAllDescendants;
+	local LocalSynchronizeAllDescendants: boolean? = Settings.SynchronizeAllDescendants or Settings.SyncAllDescendants;
 	local RemoteSettings: any = Connect.GetSettings();
 
 	if (type(RemoteSettings) == 'table') and RemoteSettings.ServerPort then
 		Settings = RemoteSettings;
 
-		if (LocalSyncAllDescendants ~= nil) then
-			Settings.SyncAllDescendants = LocalSyncAllDescendants;
+		if (LocalSynchronizeAllDescendants ~= nil) then
+			Settings.SynchronizeAllDescendants = LocalSynchronizeAllDescendants;
+			Settings.SyncAllDescendants = LocalSynchronizeAllDescendants;
 		end
 
 		Host = (Settings.ServerHost or Host);
@@ -1132,7 +1133,7 @@ local function Import(IsLIVE: boolean?): ()
 	local DeletedCount: number = 0;
 	local StudioObjectsToDelete: { [number]: Instance } = { };
 
-	for _: number, ServiceName: string in SyncedServices do
+	for _: number, ServiceName: string in SynchronizedServices do
 		local ServiceInstance: Instance? = nil;
 
 		local ServiceSuccess: boolean, ServiceResult: any = pcall(function(): (Instance)
@@ -1148,7 +1149,7 @@ local function Import(IsLIVE: boolean?): ()
 		if not ServiceInstance then continue end
 		if IsIgnored(ServiceInstance) then continue end
 
-		local ShouldSyncAllDescendants: boolean = (Settings.SyncAllDescendants == true) or (Settings.SyncMode == 'AllDescendants');
+		local ShouldSynchronizeAllDescendants: boolean = (Settings.SynchronizeAllDescendants == true) or (Settings.SyncAllDescendants == true) or (Settings.SynchronizationMode == 'AllDescendants') or (Settings.SyncMode == 'AllDescendants');
 
 		for _: number, DescendantObject: Instance in ServiceInstance:GetDescendants() do
 			if IsIgnored(DescendantObject) then continue end
@@ -1158,7 +1159,7 @@ local function Import(IsLIVE: boolean?): ()
 			local ObjectPath: string = table.concat(AncestryNames, '/');
 
 			if not ExpectedObjectPaths[ObjectPath] then
-				if ShouldSyncAllDescendants or DescendantObject:IsA('LuaSourceContainer') then
+				if ShouldSynchronizeAllDescendants or DescendantObject:IsA('LuaSourceContainer') then
 					table.insert(StudioObjectsToDelete, DescendantObject);
 				end
 			end

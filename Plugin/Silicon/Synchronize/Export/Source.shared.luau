@@ -52,7 +52,7 @@ table = (Dependencies.Table);
 
 
 
-local SyncedServices: { [number]: string } = {
+local SynchronizedServices: { [number]: string } = {
 	'Workspace',
 	'ReplicatedStorage',
 	'ServerScriptService',
@@ -253,9 +253,9 @@ local function ExportSingleObject(Object: Instance, IsDeleted: boolean?): ()
 
 	local RelativePath: string, OriginalName: string?, BaseName: string = BuildRelativePath(Object);
 
-	local ShouldSyncAllDescendants: boolean = (Settings.SyncAllDescendants == true) or (Settings.SyncMode == 'AllDescendants');
+	local ShouldSynchronizeAllDescendants: boolean = (Settings.SynchronizeAllDescendants == true) or (Settings.SyncAllDescendants == true) or (Settings.SynchronizationMode == 'AllDescendants') or (Settings.SyncMode == 'AllDescendants');
 
-	if not ShouldSyncAllDescendants and not IsDeleted then
+	if not ShouldSynchronizeAllDescendants and not IsDeleted then
 		local IsInRecycleBin: boolean = false;
 		local ConfiguredRootFolderName: string = (Settings.RootFolderName or RootFolderName or 'Silicon');
 		local ConfiguredBinFolderName: string = (Settings.RecycleBinFolderName or RecycleBinFolderName or 'Recycle Bin');
@@ -282,7 +282,7 @@ local function ExportSingleObject(Object: Instance, IsDeleted: boolean?): ()
 
 	local TargetHost: string = Host or (Settings.ServerHost) or 'localhost';
 	local TargetPort: number = Port or (Settings.ServerPort) or 6969;
-	local TargetURL: string = `http://{TargetHost}:{TargetPort}/sync`;
+	local TargetURL: string = `http://{TargetHost}:{TargetPort}/synchronization`;
 
 	if IsDeleted then
 		local Payload: string = HTTP:JSONEncode({
@@ -361,14 +361,14 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 		return;
 	end
 
-	local ShouldSyncAllDescendants: boolean = (Settings.SyncAllDescendants == true) or (Settings.SyncMode == 'AllDescendants');
+	local ShouldSynchronizeAllDescendants: boolean = (Settings.SynchronizeAllDescendants == true) or (Settings.SyncAllDescendants == true) or (Settings.SynchronizationMode == 'AllDescendants') or (Settings.SyncMode == 'AllDescendants');
 
-	print(`[Silicon Export] Scanning place hierarchy ({ShouldSyncAllDescendants and 'All Descendants' or 'Script Ancestry Only'}) to export to IDE...`);
+	print(`[Silicon Export] Scanning place hierarchy ({ShouldSynchronizeAllDescendants and 'All Descendants' or 'Script Ancestry Only'}) to export to IDE...`);
 
 	local ScriptAncestors: { [Instance]: boolean } = { };
 
-	if not ShouldSyncAllDescendants then
-		for _: number, ServiceName: string in SyncedServices do
+	if not ShouldSynchronizeAllDescendants then
+		for _: number, ServiceName: string in SynchronizedServices do
 			local ServiceInstance: Instance? = nil;
 
 			local ServiceSuccess: boolean, ServiceResult: any = pcall(function(): (Instance)
@@ -431,7 +431,7 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 	local ObjectsToExport: { [number]: { [string]: any } } = { };
 	local ObjectCount: number = 0;
 
-	for _: number, ServiceName: string in SyncedServices do
+	for _: number, ServiceName: string in SynchronizedServices do
 		local ServiceInstance: Instance? = nil;
 
 		local ServiceSuccess: boolean, ServiceResult: any = pcall(function(): (Instance)
@@ -447,7 +447,7 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 		if not ServiceInstance then continue end
 		if IsIgnored(ServiceInstance) then continue end
 
-		if ShouldSyncAllDescendants or ScriptAncestors[ServiceInstance] then
+		if ShouldSynchronizeAllDescendants or ScriptAncestors[ServiceInstance] then
 			local ServiceData: { [string]: any } = SerializeObject(ServiceInstance);
 			ObjectCount += 1;
 			table.insert(ObjectsToExport, ServiceData);
@@ -456,7 +456,7 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 		for _: number, DescendantObject: Instance in ServiceInstance:GetDescendants() do
 			if IsIgnored(DescendantObject) then continue end
 
-			if ShouldSyncAllDescendants or ScriptAncestors[DescendantObject] then
+			if ShouldSynchronizeAllDescendants or ScriptAncestors[DescendantObject] then
 				local ObjectData: { [string]: any } = SerializeObject(DescendantObject);
 
 				if ObjectData.source then
@@ -473,21 +473,21 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 
 	local TargetHost: string = Host or (Settings.ServerHost) or 'localhost';
 	local TargetPort: number = Port or (Settings.ServerPort) or 6969;
-	local TargetURL: string = `http://{TargetHost}:{TargetPort}/sync`;
+	local TargetURL: string = `http://{TargetHost}:{TargetPort}/synchronization`;
 
 	if (ObjectCount == 0) then
 		local EmptyPayload: string = HTTP:JSONEncode({
-			path      = 'empty_sync',
-			objects   = { },
-			scripts   = { },
-			full_sync = true,
+			path                 = 'empty_synchronization',
+			objects              = { },
+			scripts              = { },
+			full_synchronization = true,
 		});
 
 		pcall(function(): ()
 			HTTP:PostAsync(TargetURL, EmptyPayload, (Enum.HttpContentType.ApplicationJson));
 		end);
 
-		print('[Silicon Export] Exported 0 objects to IDE (place has no synced objects).');
+		print('[Silicon Export] Exported 0 objects to IDE (place has no synchronized objects).');
 
 		return;
 	end
@@ -616,8 +616,8 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 	end
 
 	local FinalizePayload: string = HTTP:JSONEncode({
-		path           = 'finalize_sync',
-		action         = 'finalize_sync',
+		path           = 'finalize_synchronization',
+		action         = 'finalize_synchronization',
 		received_paths = AllExportedPaths,
 	});
 

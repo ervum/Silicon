@@ -532,11 +532,11 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                 ContentLength: int = int(self.headers.get('Content-Length', 0));
                 RawBody: bytes = self.rfile.read(ContentLength) if (ContentLength > 0) else b'';
 
-                if (PathName == '/sync') or PathName.endswith('/sync') or (PathName == '/sync_all'):
+                if (PathName in ('/synchronization', '/sync')) or PathName.endswith('/synchronization') or PathName.endswith('/sync') or (PathName in ('/synchronization_all', '/sync_all')):
                     BodyString: str = RawBody.decode('utf-8', errors = 'replace');
-                    SyncData: Dict[str, Any] = json.loads(BodyString) if (BodyString and BodyString.strip()) else { };
+                    SynchronizationData: Dict[str, Any] = json.loads(BodyString) if (BodyString and BodyString.strip()) else { };
 
-                    ObjectsList: List[Dict[str, Any]] = SyncData.get('objects') or SyncData.get('scripts') or [ ];
+                    ObjectsList: List[Dict[str, Any]] = SynchronizationData.get('objects') or SynchronizationData.get('scripts') or [ ];
 
                     if ObjectsList:
                         print(f'[Silicon Server] Studio exported batch of {len(ObjectsList)} object(s) -> Writing to disk...');
@@ -616,10 +616,10 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
 
                         return;
 
-                    Action: str = SyncData.get('action', 'update');
+                    Action: str = SynchronizationData.get('action', 'update');
 
-                    if (Action == 'finalize_sync'):
-                        AllExportedPaths: Set[str] = set(SyncData.get('received_paths', [ ]));
+                    if (Action in ('finalize_synchronization', 'finalize_sync')):
+                        AllExportedPaths: Set[str] = set(SynchronizationData.get('received_paths', [ ]));
                         PrunedCount: int = 0;
 
                         for RootPath, Dirs, Files in os.walk(BasePath, topdown = False):
@@ -647,7 +647,7 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
 
                         return;
 
-                    RelativePath = SyncData.get('path', '');
+                    RelativePath = SynchronizationData.get('path', '');
 
                     if not RelativePath or IsPathIgnored(RelativePath):
                         if not RelativePath:
@@ -686,9 +686,9 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                         return;
 
                     if (Action == 'chunk'):
-                        ChunkIndex: int = int(SyncData.get('chunk_index', 1));
-                        TotalChunks: int = int(SyncData.get('total_chunks', 1));
-                        ChunkSource: str = SyncData.get('chunk_source', '');
+                        ChunkIndex: int = int(SynchronizationData.get('chunk_index', 1));
+                        TotalChunks: int = int(SynchronizationData.get('total_chunks', 1));
+                        ChunkSource: str = SynchronizationData.get('chunk_source', '');
 
                         if (RelativePath not in ChunkBuffers):
                             ChunkBuffers[RelativePath] = { };
@@ -708,10 +708,10 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                             os.makedirs(FullTargetDir, exist_ok = True);
 
                             PropertiesPayload = {
-                                'ClassName' : SyncData.get('className', 'ModuleScript'),
-                                'Properties': SyncData.get('properties', { }),
-                                'Attributes': SyncData.get('attributes', { }),
-                                'Tags'      : SyncData.get('tags', [ ]),
+                                'ClassName' : SynchronizationData.get('className', 'ModuleScript'),
+                                'Properties': SynchronizationData.get('properties', { }),
+                                'Attributes': SynchronizationData.get('attributes', { }),
+                                'Tags'      : SynchronizationData.get('tags', [ ]),
                             };
                             PropertiesFilePath, _, IsActualYAML = ResolvePropertiesFileTarget(FullTargetDir);
                             PropertiesContent = (
@@ -725,9 +725,9 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
 
                             MarkStudioWrite(PropertiesFilePath, ComputeSHA256(PropertiesContent));
 
-                            ResolvedScriptType = SyncData.get('scriptType') or (
-                                'client' if (SyncData.get('className') == 'LocalScript')
-                                else ('server' if (SyncData.get('className') == 'Script') else 'shared')
+                            ResolvedScriptType = SynchronizationData.get('scriptType') or (
+                                'client' if (SynchronizationData.get('className') == 'LocalScript')
+                                else ('server' if (SynchronizationData.get('className') == 'Script') else 'shared')
                             );
                             TargetSourceFileName = f'Source.{ResolvedScriptType}.luau';
                             TargetSourceFilePath = os.path.join(FullTargetDir, TargetSourceFileName);
@@ -738,7 +738,7 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                             FullHash: str = ComputeSHA256(FullSource);
                             MarkStudioWrite(TargetSourceFilePath, FullHash);
 
-                            print(f'[Silicon Server] Studio sync (chunked {TotalChunks} parts) -> Disk: {RelativePath} ({len(FullSource)} bytes)');
+                            print(f'[Silicon Server] Studio synchronization (chunked {TotalChunks} parts) -> Disk: {RelativePath} ({len(FullSource)} bytes)');
                             ResponsePayload = json.dumps({ 'success': True, 'hash': FullHash }).encode('utf-8');
 
                         else:
@@ -760,12 +760,12 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
 
                     os.makedirs(FullTargetDir, exist_ok = True);
 
-                    ClassName = SyncData.get('className', 'Folder');
-                    Properties = SyncData.get('properties', { });
-                    Attributes = SyncData.get('attributes', { });
-                    Tags = SyncData.get('tags', [ ]);
-                    Source = SyncData.get('source');
-                    ScriptType = SyncData.get('scriptType');
+                    ClassName = SynchronizationData.get('className', 'Folder');
+                    Properties = SynchronizationData.get('properties', { });
+                    Attributes = SynchronizationData.get('attributes', { });
+                    Tags = SynchronizationData.get('tags', [ ]);
+                    Source = SynchronizationData.get('source');
+                    ScriptType = SynchronizationData.get('scriptType');
 
                     PropertiesPayload = {
                         'ClassName' : ClassName,
@@ -798,7 +798,7 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
 
                         MarkStudioWrite(TargetSourceFilePath, ComputeSHA256(Source));
 
-                    print(f'[Silicon Server] Studio sync -> Disk: {RelativePath} ({ClassName})');
+                    print(f'[Silicon Server] Studio synchronization -> Disk: {RelativePath} ({ClassName})');
                     ResponsePayload = json.dumps({ 'success': True }).encode('utf-8');
                     self.send_response(200);
                     self.send_header('Content-Type', 'application/json');
@@ -820,8 +820,13 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                     if 'ConflictMode' in NewSettings:
                         Settings['ConflictMode'] = NewSettings['ConflictMode'];
 
-                    if 'SyncAllDescendants' in NewSettings:
-                        Settings['SyncAllDescendants'] = (str(NewSettings['SyncAllDescendants']).lower() in ('true', '1'));
+                    if 'SynchronizeAllDescendants' in NewSettings:
+                        Settings['SynchronizeAllDescendants'] = (str(NewSettings['SynchronizeAllDescendants']).lower() in ('true', '1'));
+                        Settings['SyncAllDescendants'] = Settings['SynchronizeAllDescendants'];
+
+                    elif 'SyncAllDescendants' in NewSettings:
+                        Settings['SynchronizeAllDescendants'] = (str(NewSettings['SyncAllDescendants']).lower() in ('true', '1'));
+                        Settings['SyncAllDescendants'] = Settings['SynchronizeAllDescendants'];
 
                     ResponsePayload = json.dumps({ 'success': True }).encode('utf-8');
                     self.send_response(200);
@@ -1167,7 +1172,7 @@ def Import(Data: Dict[str, Any], Path: str = BasePath, IsLIVE: bool = False) -> 
 def Export(ScriptToSynchronize: Optional[str] = None) -> (Dict[str, Any]):
     Hierarchy: Dict[str, Any] = { };
     ObjectsList: List[Dict[str, Any]] = [ ];
-    SyncAllDescendants: bool = Settings.get('SyncAllDescendants', False);
+    SynchronizeAllDescendants: bool = Settings.get('SynchronizeAllDescendants', Settings.get('SyncAllDescendants', False));
 
     AllDirs: List[str] = [ ];
     ScriptAncestors: Set[str] = set();
@@ -1205,7 +1210,7 @@ def Export(ScriptToSynchronize: Optional[str] = None) -> (Dict[str, Any]):
     for ObjectDir in AllDirs:
         RelPath: str = os.path.relpath(ObjectDir, BasePath).replace('\\', '/');
 
-        if not SyncAllDescendants and (RelPath not in ScriptAncestors):
+        if not SynchronizeAllDescendants and (RelPath not in ScriptAncestors):
             SendToRecycleBin(ObjectDir);
             continue;
 
@@ -1282,12 +1287,14 @@ if (__name__ == '__main__'):
     Arguments: Namespace = Parser.parse_args();
 
     Command: str = Arguments.command;
-    SyncAllDescendantsFlag: bool = getattr(Arguments, 'AllDescendants', False) or (Command == 'AllDescendants');
-    Settings['SyncAllDescendants'] = SyncAllDescendantsFlag;
+    SynchronizeAllDescendantsFlag: bool = getattr(Arguments, 'AllDescendants', False) or (Command == 'AllDescendants');
+    Settings['SynchronizeAllDescendants'] = SynchronizeAllDescendantsFlag;
+    Settings['SyncAllDescendants'] = SynchronizeAllDescendantsFlag;
 
     if Arguments.Settings:
         Settings = LoadSettings(Arguments.Settings);
-        Settings['SyncAllDescendants'] = SyncAllDescendantsFlag;
+        Settings['SynchronizeAllDescendants'] = SynchronizeAllDescendantsFlag;
+        Settings['SyncAllDescendants'] = SynchronizeAllDescendantsFlag;
         PN = Settings.get('PropertiesName', 'Properties');
         SN = Settings.get('SourceName', 'Source');
         PropertiesFileExtension = Settings.get('PropertiesFileExtension', 'yaml').lower();
@@ -1334,11 +1341,14 @@ if (__name__ == '__main__'):
         );
         ServerThread.start();
 
+        Version: str = Settings.get('Version', '0.0.0');
+        print(f'[Silicon Server] Silicon IDE Daemon v{Version} started!');
         print(f'[Silicon Server] Successfully started server! - Listening on {ServerURL}');
         print(f'[Silicon Server] Waiting for Roblox Studio connection...');
 
     else:
-        print(f'The server is already running on {ServerURL}!');
+        Version: str = Settings.get('Version', '0.0.0');
+        print(f'[Silicon Server] Silicon IDE Daemon v{Version} is already running on {ServerURL}!');
 
     if ('synchronize' in Command.lower()) or ('bidirectional' in Command.lower()):
         print('[LIVE CONNECTION]');
@@ -1347,12 +1357,12 @@ if (__name__ == '__main__'):
         print('[SINGLE-TIME CONNECTION]');
 
     if ('fromroblox' in Command.lower()):
-        print('[INITIAL SYNC: ROBLOX -> IDE]');
+        print('[INITIAL SYNCHRONIZATION: ROBLOX -> IDE]');
     elif ('fromide' in Command.lower()):
-        print('[INITIAL SYNC: IDE -> ROBLOX]');
+        print('[INITIAL SYNCHRONIZATION: IDE -> ROBLOX]');
 
-    if ('AllDescendants' in Command) or SyncAllDescendantsFlag:
-        print('[MODE: ALL DESCENDANTS (FULL PLACE SYNC)]');
+    if ('AllDescendants' in Command) or SynchronizeAllDescendantsFlag:
+        print('[MODE: ALL DESCENDANTS (FULL PLACE SYNCHRONIZATION)]');
     else:
         print('[MODE: SCRIPT ANCESTRY ONLY]');
 
