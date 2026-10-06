@@ -35,7 +35,7 @@ ExportFromRSPropertyBlacklist :          # By default, `Name`, `Parent` and `Dis
   - 'Disabled'                           # There's already `Enabled`.
 
 RootFolderName                : 'Silicon'
-PluginFolderName              : 'Silicon'
+PluginFolderName              : 'Plugin'
 RecycleBinFolderName          : 'Recycle Bin'
 IgnoredAncestors              : [ ]
 

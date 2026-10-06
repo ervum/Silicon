@@ -308,6 +308,35 @@ def InferScriptTypeFromFileName(FileName: str) -> (Optional[str]):
 
     return None;
 
+def ResolvePropertiesFileTarget(ObjectDir: str) -> (Tuple[str, str, bool]):
+    ConfiguredExt: str = Settings.get('PropertiesFileExtension', 'yaml').lower();
+    PrefExt: str = 'yaml' if ('y' in ConfiguredExt) else 'json';
+    AltExt: str = 'json' if (PrefExt == 'yaml') else 'yaml';
+
+    PrefName: str = f'{PN}.{PrefExt}';
+    AltName: str = f'{PN}.{AltExt}';
+
+    PrefPath: str = os.path.join(ObjectDir, PrefName);
+    AltPath: str = os.path.join(ObjectDir, AltName);
+
+    PrefExists: bool = os.path.isfile(PrefPath);
+    AltExists: bool = os.path.isfile(AltPath);
+
+    if (PrefExists and AltExists):
+        try:
+            os.remove(AltPath);
+
+        except Exception:
+            pass;
+
+        return (PrefPath, PrefName, (PrefExt == 'yaml'));
+
+    elif AltExists:
+        return (AltPath, AltName, (AltExt == 'yaml'));
+
+    else:
+        return (PrefPath, PrefName, (PrefExt == 'yaml'));
+
 def WatchLoop() -> (None):
     global KnownDirectories;
 
@@ -330,11 +359,17 @@ def WatchLoop() -> (None):
                     if IsPathIgnored(RelPath):
                         continue;
 
-                    IsProperties: bool = (FileName == PropertiesFileName) or (FileName == 'Properties.json') or (FileName == '__Properties__.yaml');
+                    IsProperties: bool = (FileName == PropertiesFileName) or (FileName == 'Properties.json') or (FileName == 'Properties.yaml') or (FileName == '__Properties__.yaml');
                     IsSource: bool = FileName.startswith('Source.') or FileName.startswith('__Source__.') or (FileName.endswith('.luau') or FileName.endswith('.lua'));
 
                     if not (IsProperties or IsSource):
                         continue;
+
+                    if IsProperties:
+                        ResolvedPropsPath: str = ResolvePropertiesFileTarget(RootPath)[0];
+
+                        if (FilePath != ResolvedPropsPath) and os.path.isfile(ResolvedPropsPath):
+                            continue;
 
                     CurrentFiles.add(RelPath);
 
@@ -374,7 +409,7 @@ def WatchLoop() -> (None):
 
                             if IsProperties:
                                 try:
-                                    ParsedPropertiesData: Dict[str, Any] = json.loads(FileContent);
+                                    ParsedPropertiesData: Dict[str, Any] = yaml.safe_load(FileContent) or { };
                                     ExtractedClassName: str = ParsedPropertiesData.get('ClassName', 'Folder');
                                     ExtractedProperties: Dict[str, Any] = ParsedPropertiesData.get('Properties', { });
                                     ExtractedAttributes: Dict[str, Any] = ParsedPropertiesData.get('Attributes', { });
@@ -452,11 +487,17 @@ def StartWatcher() -> (None):
             if IsPathIgnored(RelPath):
                 continue;
 
-            IsProperties: bool = (FileName == PropertiesFileName) or (FileName == 'Properties.json') or (FileName == '__Properties__.yaml');
+            IsProperties: bool = (FileName == PropertiesFileName) or (FileName == 'Properties.json') or (FileName == 'Properties.yaml') or (FileName == '__Properties__.yaml');
             IsSource: bool = FileName.startswith('Source.') or FileName.startswith('__Source__.') or (FileName.endswith('.luau') or FileName.endswith('.lua'));
 
             if not (IsProperties or IsSource):
                 continue;
+
+            if IsProperties:
+                ResolvedPropsPath: str = ResolvePropertiesFileTarget(RootPath)[0];
+
+                if (FilePath != ResolvedPropsPath) and os.path.isfile(ResolvedPropsPath):
+                    continue;
 
             FileHashes[RelPath] = ComputeFileSHA256(FilePath);
             FileMTimes[RelPath] = os.path.getmtime(FilePath);
@@ -523,10 +564,10 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                                 'Attributes': Attributes,
                                 'Tags'      : Tags,
                             };
-                            PropertiesFilePath: str = os.path.join(ObjectDir, PropertiesFileName);
+                            PropertiesFilePath, _, IsActualYAML = ResolvePropertiesFileTarget(ObjectDir);
                             PropertiesContent: str = (
                                 yaml.dump(PropertiesPayload, default_flow_style = False, allow_unicode = True, sort_keys = False)
-                                if UseYAML
+                                if IsActualYAML
                                 else json.dumps(PropertiesPayload, indent = 2)
                             );
 
@@ -672,10 +713,10 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                                 'Attributes': SyncData.get('attributes', { }),
                                 'Tags'      : SyncData.get('tags', [ ]),
                             };
-                            PropertiesFilePath = os.path.join(FullTargetDir, PropertiesFileName);
+                            PropertiesFilePath, _, IsActualYAML = ResolvePropertiesFileTarget(FullTargetDir);
                             PropertiesContent = (
                                 yaml.dump(PropertiesPayload, default_flow_style = False, allow_unicode = True, sort_keys = False)
-                                if UseYAML
+                                if IsActualYAML
                                 else json.dumps(PropertiesPayload, indent = 2)
                             );
 
@@ -732,10 +773,10 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                         'Attributes': Attributes,
                         'Tags'      : Tags,
                     };
-                    PropertiesFilePath = os.path.join(FullTargetDir, PropertiesFileName);
+                    PropertiesFilePath, _, IsActualYAML = ResolvePropertiesFileTarget(FullTargetDir);
                     PropertiesContent = (
                         yaml.dump(PropertiesPayload, default_flow_style = False, allow_unicode = True, sort_keys = False)
-                        if UseYAML
+                        if IsActualYAML
                         else json.dumps(PropertiesPayload, indent = 2)
                     );
 
@@ -1106,8 +1147,9 @@ def Import(Data: Dict[str, Any], Path: str = BasePath, IsLIVE: bool = False) -> 
 
         elif (Key == PN):
             try:
-                with open(os.path.join(Path, PropertiesFileName), 'w', encoding = 'utf-8') as File:
-                    if UseYAML:
+                PropsFilePath, _, IsActualYAML = ResolvePropertiesFileTarget(Path);
+                with open(PropsFilePath, 'w', encoding = 'utf-8') as File:
+                    if IsActualYAML:
                         yaml.dump(Value, File, default_flow_style = False, allow_unicode = True, sort_keys = False);
 
                     else:
@@ -1167,12 +1209,7 @@ def Export(ScriptToSynchronize: Optional[str] = None) -> (Dict[str, Any]):
             SendToRecycleBin(ObjectDir);
             continue;
 
-        PropsFilePath: str = os.path.join(ObjectDir, PropertiesFileName);
-
-        if not os.path.isfile(PropsFilePath):
-            AltPropsPath: str = os.path.join(ObjectDir, 'Properties.json' if ('yaml' in PropertiesFileName) else 'Properties.yaml');
-            if os.path.isfile(AltPropsPath):
-                PropsFilePath = AltPropsPath;
+        PropsFilePath: str = ResolvePropertiesFileTarget(ObjectDir)[0];
 
         ClassName: str = 'Folder';
         Properties: Dict[str, Any] = { };
