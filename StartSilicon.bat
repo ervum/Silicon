@@ -20,9 +20,9 @@ echo.
 :: 1. Check if running inside the Silicon repository itself
 if exist "%~dp0bin\Silicon.bat" (
     echo [Silicon] Found Silicon in local folder: %~dp0bin\Silicon.bat
-    echo [Silicon] Launching Bidirectional synchronization...
+    echo [Silicon] Launching Silicon Server daemon...
     echo.
-    call "%~dp0bin\Silicon.bat" Bidirectional -p "%GAME_TARGET%" %*
+    call "%~dp0bin\Silicon.bat" -p "%GAME_TARGET%" %*
     goto :Finish
 )
 
@@ -30,26 +30,26 @@ if exist "%~dp0bin\Silicon.bat" (
 where.exe Silicon.bat >nul 2>&1
 if %ERRORLEVEL% equ 0 (
     echo [Silicon] Found Silicon.bat in system PATH.
-    echo [Silicon] Launching Bidirectional synchronization...
+    echo [Silicon] Launching Silicon Server daemon...
     echo.
-    call Silicon.bat Bidirectional -p "%GAME_TARGET%" %*
+    call Silicon.bat -p "%GAME_TARGET%" %*
     goto :Finish
 )
 
 :: 3. Check known Silicon installation locations
 if exist "C:\Dev\Silicon\bin\Silicon.bat" (
     echo [Silicon] Found Silicon in C:\Dev\Silicon.
-    echo [Silicon] Launching Bidirectional synchronization...
+    echo [Silicon] Launching Silicon Server daemon...
     echo.
-    call "C:\Dev\Silicon\bin\Silicon.bat" Bidirectional -p "%GAME_TARGET%" %*
+    call "C:\Dev\Silicon\bin\Silicon.bat" -p "%GAME_TARGET%" %*
     goto :Finish
 )
 
 if exist "c:\Users\Ervum\OneDrive\Documents\Projects\Roblox\Silicon\bin\Silicon.bat" (
     echo [Silicon] Found Silicon in project repository.
-    echo [Silicon] Launching Bidirectional synchronization...
+    echo [Silicon] Launching Silicon Server daemon...
     echo.
-    call "c:\Users\Ervum\OneDrive\Documents\Projects\Roblox\Silicon\bin\Silicon.bat" Bidirectional -p "%GAME_TARGET%" %*
+    call "c:\Users\Ervum\OneDrive\Documents\Projects\Roblox\Silicon\bin\Silicon.bat" -p "%GAME_TARGET%" %*
     goto :Finish
 )
 

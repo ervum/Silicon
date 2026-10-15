@@ -16,7 +16,7 @@ import os;
 
 from ctypes      import wintypes;
 from typing      import Any, Optional, Union, Tuple, Dict, List, Type, Set;
-from argparse    import ArgumentParser, _SubParsersAction, Namespace;
+from argparse    import ArgumentParser, Namespace;
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer;
 from threading   import Thread, Lock, Condition;
 
@@ -29,6 +29,8 @@ if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(line_buffering = True);
 
 
+
+SiliconScriptDir: str = os.path.dirname(os.path.abspath(__file__));
 
 def ResolveGameBasePath(ExplicitTarget: Optional[str] = None) -> (str):
     Target: Optional[str] = ExplicitTarget;
@@ -43,7 +45,7 @@ def ResolveGameBasePath(ExplicitTarget: Optional[str] = None) -> (str):
         return AbsExplicit;
 
     CurrentDir: str = os.getcwd();
-    ScriptDir: str = os.path.dirname(os.path.abspath(__file__));
+    ScriptDir: str = SiliconScriptDir;
 
     if (os.path.basename(CurrentDir).lower() == 'game') or os.path.isdir(os.path.join(CurrentDir, 'Workspace')):
         return CurrentDir;
@@ -74,39 +76,7 @@ def ResolveGameBasePath(ExplicitTarget: Optional[str] = None) -> (str):
 ScriptPath: str = os.getcwd();
 BasePath: str = ResolveGameBasePath();
 
-ServerTypesForSubparsers: Dict[str, str] = {
-    'Bidirectional'          : 'POST GET',
-    'BidirectionalFromRoblox': 'POST GET',
-    'BidirectionalFromStudio': 'POST GET',
-    'BidirectionalFromIDE'   : 'POST GET',
-    'AllDescendants'         : 'POST GET',
-
-    'ExportSynchronize'      : 'GET',
-    'ImportSynchronize'      : 'POST',
-
-    'Export'                 : 'GET',
-    'Import'                 : 'POST',
-
-    'Server'                 : 'POST GET',
-};
-
-DescriptionsForSubparsers: Dict[str, str] = {
-    'Bidirectional'          : 'Continuously synchronize data bidirectionally between IDE and Roblox Studio',
-    'BidirectionalFromRoblox': 'Perform initial import from Roblox Studio to IDE files, then continuously synchronize bidirectionally',
-    'BidirectionalFromStudio': 'Perform initial import from Roblox Studio to IDE files, then continuously synchronize bidirectionally',
-    'BidirectionalFromIDE'   : 'Perform initial import from IDE files to Roblox Studio, then continuously synchronize bidirectionally',
-    'AllDescendants'         : 'Continuously synchronize ALL descendants of game bidirectionally between IDE and Roblox Studio',
-
-    'ExportSynchronize'      : 'One-way synchronize data from IDE to Roblox Studio',
-    'ImportSynchronize'      : 'One-way synchronize data from Roblox Studio to IDE',
-
-    'Export'                 : 'Export all data from IDE to Roblox Studio',
-    'Import'                 : 'Import all data from Roblox Studio to IDE',
-
-    'Server'                 : 'Run the server',
-};
-
-ArgumentsForSubparsers: List[Tuple[str, str, Type, str]] = [
+DaemonArguments: List[Tuple[str, str, Type, str]] = [
     ('--Script',   '-S', str, 'Path to a certain script to be processed along with all its ancestry'),
     ('--Target',   '-p', str, 'Target directory where Game files are stored and synchronized'),
     ('--Settings', '-s', str, 'Path to Settings.yaml configuration file'),
@@ -117,7 +87,159 @@ ArgumentsForSubparsers: List[Tuple[str, str, Type, str]] = [
     ('--Requests', '-r', str, 'HTTPRequest types for the handler to enable'),
 ];
 
-OneTimeConnectionServerTypes: Set[str] = { 'Export', 'Import' };
+def SetSiliconRibbonTabVisible(IsVisible: bool, Silent: bool = False) -> (bool):
+    ScriptDir: str = SiliconScriptDir;
+    LocalLayoutPath: str = os.path.join(ScriptDir, 'Assets', 'Ribbon', 'RibbonLayout.json');
+    LocalTabPath: str = os.path.join(ScriptDir, 'Assets', 'Ribbon', 'SiliconTab.json');
+    SettingsYAMLPath: str = os.path.join(ScriptDir, 'Settings.yaml');
+    TargetBool: bool = bool(IsVisible);
+    UpdatedAny: bool = False;
+
+    if os.path.isfile(SettingsYAMLPath):
+        try:
+            with open(SettingsYAMLPath, 'r', encoding = 'utf-8') as SettingsReader:
+                YAMLText: str = SettingsReader.read();
+
+            OldToken: str = 'ShowRibbonTab                 : true' if (not TargetBool) else 'ShowRibbonTab                 : false';
+            NewToken: str = 'ShowRibbonTab                 : true' if TargetBool else 'ShowRibbonTab                 : false';
+
+            if (OldToken in YAMLText):
+                UpdatedYAMLText: str = YAMLText.replace(OldToken, NewToken, 1);
+
+                with open(SettingsYAMLPath, 'w', encoding = 'utf-8') as SettingsWriter:
+                    SettingsWriter.write(UpdatedYAMLText);
+
+                UpdatedAny = True;
+
+        except Exception as YAMLError:
+            if not Silent:
+                LogException(YAMLError, f'update ShowRibbonTab in {SettingsYAMLPath}!');
+
+    if os.path.isfile(LocalLayoutPath):
+        try:
+            with open(LocalLayoutPath, 'r', encoding = 'utf-8') as LocalReader:
+                LocalLayoutData: Dict[str, Any] = json.load(LocalReader) or { };
+
+            LocalTabList: List[Dict[str, Any]] = LocalLayoutData.get('TabLayout', [ ]);
+            LocalChanged: bool = False;
+            FoundLocalSilicon: bool = False;
+
+            for LocalTabEntry in LocalTabList:
+                LocalIdentifier: Dict[str, Any] = LocalTabEntry.get('Identifier', { });
+
+                if (LocalIdentifier.get('Filename') == 'SiliconTab'):
+                    FoundLocalSilicon = True;
+
+                    if (LocalTabEntry.get('Visible') != TargetBool):
+                        LocalTabEntry['Visible'] = TargetBool;
+                        LocalChanged = True;
+
+            if not FoundLocalSilicon:
+                LocalTabList.append({
+                    'Identifier': {
+                        'Type'    : 'Custom',
+                        'Filename': 'SiliconTab',
+                    },
+                    'Visible'   : TargetBool,
+                });
+                LocalLayoutData['TabLayout'] = LocalTabList;
+                LocalChanged = True;
+
+            if LocalChanged:
+                with open(LocalLayoutPath, 'w', encoding = 'utf-8') as LocalWriter:
+                    json.dump(LocalLayoutData, LocalWriter, indent = 4);
+
+                UpdatedAny = True;
+
+        except Exception as LocalLayoutError:
+            if not Silent:
+                LogException(LocalLayoutError, f'update RibbonLayout.json at {LocalLayoutPath}!');
+
+    LocalAppDataDir: str = (os.environ.get('LOCALAPPDATA') or '');
+    RobloxDir: str = os.path.join(LocalAppDataDir, 'Roblox');
+
+    if LocalAppDataDir and os.path.isdir(RobloxDir):
+        for EntryName in os.listdir(RobloxDir):
+            CandidateDir: str = os.path.join(RobloxDir, EntryName);
+
+            if os.path.isdir(CandidateDir) and EntryName.isdigit() and (EntryName != '0'):
+                CustomTabsDir: str = os.path.join(CandidateDir, 'CustomRibbonTabs');
+                UserLayoutPath: str = os.path.join(CustomTabsDir, 'RibbonLayout.json');
+                UserTabPath: str = os.path.join(CustomTabsDir, 'SiliconTab.json');
+
+                try:
+                    os.makedirs(CustomTabsDir, exist_ok = True);
+
+                    if TargetBool:
+                        if os.path.isfile(LocalTabPath) and (not os.path.isfile(UserTabPath)):
+                            shutil.copy2(LocalTabPath, UserTabPath);
+                            UpdatedAny = True;
+
+                    else:
+                        if os.path.isfile(UserTabPath):
+                            os.remove(UserTabPath);
+                            UpdatedAny = True;
+
+                    if (not os.path.isfile(UserLayoutPath)) and os.path.isfile(LocalLayoutPath):
+                        shutil.copy2(LocalLayoutPath, UserLayoutPath);
+                        UpdatedAny = True;
+
+                    if os.path.isfile(UserLayoutPath):
+                        with open(UserLayoutPath, 'r', encoding = 'utf-8') as Reader:
+                            LayoutData: Dict[str, Any] = json.load(Reader) or { };
+
+                        TabLayoutList: List[Dict[str, Any]] = LayoutData.get('TabLayout', [ ]);
+                        LayoutChanged: bool = False;
+
+                        if TargetBool:
+                            FoundSiliconTab: bool = False;
+
+                            for TabEntry in TabLayoutList:
+                                Identifier: Dict[str, Any] = TabEntry.get('Identifier', { });
+
+                                if (Identifier.get('Filename') == 'SiliconTab'):
+                                    FoundSiliconTab = True;
+
+                                    if (TabEntry.get('Visible') is not True):
+                                        TabEntry['Visible'] = True;
+                                        LayoutChanged = True;
+
+                            if not FoundSiliconTab:
+                                TabLayoutList.append({
+                                    'Identifier': {
+                                        'Type'    : 'Custom',
+                                        'Filename': 'SiliconTab',
+                                    },
+                                    'Visible'   : True,
+                                });
+                                LayoutData['TabLayout'] = TabLayoutList;
+                                LayoutChanged = True;
+
+                        else:
+                            FilteredTabs: List[Dict[str, Any]] = [
+                                TabEntry
+                                for TabEntry in TabLayoutList
+                                if ((TabEntry.get('Identifier', { }).get('Filename')) != 'SiliconTab')
+                            ];
+
+                            if (len(FilteredTabs) != len(TabLayoutList)):
+                                LayoutData['TabLayout'] = FilteredTabs;
+                                LayoutChanged = True;
+
+                        if LayoutChanged:
+                            with open(UserLayoutPath, 'w', encoding = 'utf-8') as Writer:
+                                json.dump(LayoutData, Writer, indent = 4);
+
+                            UpdatedAny = True;
+
+                except Exception as LayoutError:
+                    if not Silent:
+                        LogException(LayoutError, f'update CustomRibbonTabs in {CustomTabsDir}!');
+
+    if (not Silent) or UpdatedAny:
+        print(f'[Silicon Server] Custom Silicon Ribbon Tab visibility set to: {TargetBool}');
+
+    return UpdatedAny;
 
 NoDataAvailableResponse: Dict[str, str] = { 'Status': 'No data available' };
 AliveResponse: Dict[str, str] = { 'Status': 'Alive', 'Server': 'Silicon', 'Version': '0.0.0' };
@@ -131,7 +253,9 @@ ChunkBuffers: Dict[str, Dict[int, str]] = { };
 SuppressedHashes: Set[str] = set();
 SuppressionLock: Lock = Lock();
 
-StudioConnected: bool = False;
+RSConnected: bool = False;
+LastRSContactTime: float = 0.0;
+PendingRSClear: bool = False;
 
 FileHashes: Dict[str, str] = { };
 FileMTimes: Dict[str, float] = { };
@@ -287,7 +411,7 @@ def SendToRecycleBin(TargetDirectoryOrFilePath: str) -> (bool):
 
         return False;
 
-def MarkStudioWrite(FilePath: str, ContentHash: str) -> (None):
+def MarkRSWrite(FilePath: str, ContentHash: str) -> (None):
     NormalizedPath: str = os.path.relpath(FilePath, BasePath).replace('\\', '/');
 
     with SuppressionLock:
@@ -300,6 +424,54 @@ def MarkStudioWrite(FilePath: str, ContentHash: str) -> (None):
 
             except OSError:
                 pass;
+
+def IsRSActivelyConnected() -> (bool):
+    return (RSConnected and ((time.time() - LastRSContactTime) < 10.0));
+
+def ConsumePendingRSClear() -> (bool):
+    global PendingRSClear;
+
+    with SuppressionLock:
+        if PendingRSClear:
+            PendingRSClear = False;
+
+            return True;
+
+        return False;
+
+def ClearProjectDirectory(TargetBasePath: Optional[str] = None, NotifyRS: bool = False) -> (int):
+    global KnownDirectories, PendingRSClear;
+
+    TargetDir: str = TargetBasePath or BasePath;
+    ClearedCount: int = 0;
+
+    if os.path.isdir(TargetDir):
+        for EntryName in os.listdir(TargetDir):
+            if (EntryName in IgnoredDirectories):
+                continue;
+
+            EntryPath: str = os.path.join(TargetDir, EntryName);
+
+            if SendToRecycleBin(EntryPath):
+                ClearedCount += 1;
+
+    with SuppressionLock:
+        FileHashes.clear();
+        FileMTimes.clear();
+        KnownDirectories.clear();
+        SuppressedHashes.clear();
+
+        if NotifyRS and IsRSActivelyConnected():
+            PendingRSClear = True;
+
+    if NotifyRS and IsRSActivelyConnected():
+        ChangeEventsQueue.AddEvent(Action = 'clear_project', Path = '__all__');
+        print(f'[Silicon Server] Cleared {ClearedCount} top-level item(s) from {TargetDir} and notified connected RS client to clear.');
+
+    else:
+        print(f'[Silicon Server] Cleared {ClearedCount} top-level item(s) from {TargetDir} (moved to Recycle Bin).');
+
+    return ClearedCount;
 
 def InferScriptTypeFromFileName(FileName: str) -> (Optional[str]):
     LowerName: str = FileName.lower();
@@ -347,8 +519,16 @@ def ResolvePropertiesFileTarget(ObjectDir: str) -> (Tuple[str, str, bool]):
 def WatchLoop() -> (None):
     global KnownDirectories;
 
+    LastRibbonCheckTime: float = 0.0;
+
     while WatcherRunning:
         try:
+            NowTime: float = time.time();
+
+            if ((NowTime - LastRibbonCheckTime) >= 1.5):
+                LastRibbonCheckTime = NowTime;
+                SetSiliconRibbonTabVisible((Settings.get('ShowRibbonTab', True) is not False), True);
+
             CurrentFiles: Set[str] = set();
             CurrentDirs: Set[str] = set();
 
@@ -522,19 +702,24 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
             pass;
 
         def do_POST(self) -> (None):
-            global Settings, StudioConnected;
+            global Settings, RSConnected, LastRSContactTime;
 
-            if not StudioConnected:
-                StudioConnected = True;
-                print(f'[Silicon Server] Roblox Studio connected successfully from {self.client_address[0]}!');
+            ParsedURL = urllib.parse.urlparse(self.path);
+            PathName: str = (ParsedURL.path);
+            UserAgent: str = (self.headers.get('User-Agent') or '');
+            IsCLIRequest: bool = ('python-requests' in UserAgent.lower()) or (PathName in ('/stop', '/shutdown'));
+
+            if not IsCLIRequest:
+                LastRSContactTime = time.time();
+
+                if not RSConnected:
+                    RSConnected = True;
+                    print(f'[Silicon Server] RS connected successfully from {self.client_address[0]}!');
 
             try:
                 if not POSTEnabled:
                     self.send_error(405, 'POST method not allowed');
                     return;
-
-                ParsedURL = urllib.parse.urlparse(self.path);
-                PathName: str = (ParsedURL.path);
 
                 ContentLength: int = int(self.headers.get('Content-Length', 0));
                 RawBody: bytes = self.rfile.read(ContentLength) if (ContentLength > 0) else b'';
@@ -546,7 +731,7 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                     ObjectsList: List[Dict[str, Any]] = SynchronizationData.get('objects') or SynchronizationData.get('scripts') or [ ];
 
                     if ObjectsList:
-                        print(f'[Silicon Server] Studio exported batch of {len(ObjectsList)} object(s) -> Writing to disk...');
+                        print(f'[Silicon Server] RS exported batch of {len(ObjectsList)} object(s) -> Writing to disk...');
 
                         SavedCount: int = 0;
 
@@ -581,7 +766,7 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                             with open(PropertiesFilePath, 'w', encoding = 'utf-8') as PropsFile:
                                 PropsFile.write(PropertiesContent);
 
-                            MarkStudioWrite(PropertiesFilePath, ComputeSHA256(PropertiesContent));
+                            MarkRSWrite(PropertiesFilePath, ComputeSHA256(PropertiesContent));
 
                             if (Source is not None):
                                 ResolvedScriptType: str = ScriptType or (
@@ -601,7 +786,7 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                                 with open(TargetSourceFilePath, 'w', encoding = 'utf-8') as SourceFile:
                                     SourceFile.write(Source);
 
-                                MarkStudioWrite(TargetSourceFilePath, ComputeSHA256(Source));
+                                MarkRSWrite(TargetSourceFilePath, ComputeSHA256(Source));
 
                             else:
                                 for ExistingFile in os.listdir(ObjectDir):
@@ -613,7 +798,7 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
 
                             SavedCount += 1;
 
-                        print(f'[Silicon Server] Successfully saved batch of {SavedCount} object(s) from Studio to local disk.');
+                        print(f'[Silicon Server] Successfully saved batch of {SavedCount} object(s) from RS to local disk.');
                         ResponsePayload: bytes = json.dumps({ 'success': True, 'count': SavedCount }).encode('utf-8');
                         self.send_response(200);
                         self.send_header('Content-Type', 'application/json');
@@ -662,12 +847,12 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                                 continue;
 
                             if (RelDir not in AllExportedPaths):
-                                print(f'[Silicon Server] Pruning local object folder (not present in Studio): {RelDir}');
+                                print(f'[Silicon Server] Pruning local object folder (not present in RS): {RelDir}');
                                 SendToRecycleBin(RootPath);
                                 PrunedCount += 1;
 
                         if (PrunedCount > 0):
-                            print(f'[Silicon Server] Pruned {PrunedCount} object folder(s) from local disk to match Studio.');
+                            print(f'[Silicon Server] Pruned {PrunedCount} object folder(s) from local disk to match RS.');
 
                         print(f'[Silicon Server] Synchronization finalized: {len(AllExportedPaths)} object(s) synchronized.');
                         ResponsePayload = json.dumps({ 'success': True, 'pruned': PrunedCount }).encode('utf-8');
@@ -698,7 +883,7 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                     FullTargetDir: str = os.path.join(BasePath, RelativePath);
 
                     if (Action == 'delete'):
-                        print(f'[Silicon Server] Studio requested delete: {RelativePath} -> Moving to Recycle Bin');
+                        print(f'[Silicon Server] RS requested delete: {RelativePath} -> Moving to Recycle Bin');
                         SendToRecycleBin(FullTargetDir);
 
                         with SuppressionLock:
@@ -755,7 +940,7 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                             with open(PropertiesFilePath, 'w', encoding = 'utf-8') as PropsFile:
                                 PropsFile.write(PropertiesContent);
 
-                            MarkStudioWrite(PropertiesFilePath, ComputeSHA256(PropertiesContent));
+                            MarkRSWrite(PropertiesFilePath, ComputeSHA256(PropertiesContent));
 
                             ResolvedScriptType = SynchronizationData.get('scriptType') or (
                                 'client' if (SynchronizationData.get('className') == 'LocalScript')
@@ -768,9 +953,9 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                                 OutFile.write(FullSource);
 
                             FullHash: str = ComputeSHA256(FullSource);
-                            MarkStudioWrite(TargetSourceFilePath, FullHash);
+                            MarkRSWrite(TargetSourceFilePath, FullHash);
 
-                            print(f'[Silicon Server] Studio synchronization (chunked {TotalChunks} parts) -> Disk: {RelativePath} ({len(FullSource)} bytes)');
+                            print(f'[Silicon Server] RS synchronization (chunked {TotalChunks} parts) -> Disk: {RelativePath} ({len(FullSource)} bytes)');
                             ResponsePayload = json.dumps({ 'success': True, 'hash': FullHash }).encode('utf-8');
 
                         else:
@@ -815,7 +1000,7 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                     with open(PropertiesFilePath, 'w', encoding = 'utf-8') as PropsFile:
                         PropsFile.write(PropertiesContent);
 
-                    MarkStudioWrite(PropertiesFilePath, ComputeSHA256(PropertiesContent));
+                    MarkRSWrite(PropertiesFilePath, ComputeSHA256(PropertiesContent));
 
                     if (Source is not None):
                         ResolvedScriptType = ScriptType or (
@@ -828,9 +1013,9 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                         with open(TargetSourceFilePath, 'w', encoding = 'utf-8') as SourceFile:
                             SourceFile.write(Source);
 
-                        MarkStudioWrite(TargetSourceFilePath, ComputeSHA256(Source));
+                        MarkRSWrite(TargetSourceFilePath, ComputeSHA256(Source));
 
-                    print(f'[Silicon Server] Studio synchronization -> Disk: {RelativePath} ({ClassName})');
+                    print(f'[Silicon Server] RS synchronization -> Disk: {RelativePath} ({ClassName})');
                     ResponsePayload = json.dumps({ 'success': True }).encode('utf-8');
                     self.send_response(200);
                     self.send_header('Content-Type', 'application/json');
@@ -860,12 +1045,56 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                         Settings['SynchronizeAllDescendants'] = (str(NewSettings['SyncAllDescendants']).lower() in ('true', '1'));
                         Settings['SyncAllDescendants'] = Settings['SynchronizeAllDescendants'];
 
-                    ResponsePayload = json.dumps({ 'success': True }).encode('utf-8');
+                    if 'InitialSyncFromRS' in NewSettings:
+                        Settings['InitialSyncFromRS'] = (str(NewSettings['InitialSyncFromRS']).lower() in ('true', '1'));
+
+                    if 'ShowRibbonTab' in NewSettings:
+                        RibbonVisible: bool = (str(NewSettings['ShowRibbonTab']).lower() in ('true', '1'));
+                        PreviousRibbonVisible: Optional[bool] = Settings.get('ShowRibbonTab');
+                        Settings['ShowRibbonTab'] = RibbonVisible;
+                        SetSiliconRibbonTabVisible(RibbonVisible, (PreviousRibbonVisible == RibbonVisible));
+
+                    ShouldClearRS: bool = ConsumePendingRSClear();
+                    ResponsePayload = json.dumps({ 'success': True, 'clearRS': ShouldClearRS }).encode('utf-8');
                     self.send_response(200);
                     self.send_header('Content-Type', 'application/json');
                     self.send_header('Content-Length', str(len(ResponsePayload)));
                     self.end_headers();
                     self.wfile.write(ResponsePayload);
+
+                    return;
+
+                if (PathName in ('/clear', '/clear_project')) or PathName.endswith('/clear') or PathName.endswith('/clear_project'):
+                    ClearBodyText: str = RawBody.decode('utf-8', errors = 'replace') if RawBody else '';
+                    ClearRequestData: Dict[str, Any] = { };
+
+                    if ClearBodyText and ClearBodyText.strip():
+                        try:
+                            ClearRequestData = json.loads(ClearBodyText) or { };
+                        except Exception:
+                            ClearRequestData = { };
+
+                    Origin: str = str(ClearRequestData.get('origin', 'IDE')).upper();
+                    ShouldNotifyRS: bool = (Origin != 'RS');
+                    ClearedItems: int = ClearProjectDirectory(NotifyRS = ShouldNotifyRS);
+                    ClearPayload: bytes = json.dumps({ 'Status': 'Cleared', 'ClearedCount': ClearedItems }).encode('utf-8');
+                    self.send_response(200);
+                    self.send_header('Content-Type', 'application/json');
+                    self.send_header('Content-Length', str(len(ClearPayload)));
+                    self.end_headers();
+                    self.wfile.write(ClearPayload);
+
+                    return;
+
+                if (PathName in ('/stop', '/shutdown')) or PathName.endswith('/stop') or PathName.endswith('/shutdown'):
+                    StopPayload: bytes = json.dumps({ 'Status': 'Stopping' }).encode('utf-8');
+                    self.send_response(200);
+                    self.send_header('Content-Type', 'application/json');
+                    self.send_header('Content-Length', str(len(StopPayload)));
+                    self.end_headers();
+                    self.wfile.write(StopPayload);
+
+                    Thread(target = StopHTTPServer, daemon = True).start();
 
                     return;
 
@@ -950,11 +1179,19 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                 StopHTTPServer();
 
         def do_GET(self) -> (None):
-            global Settings, StudioConnected;
+            global Settings, RSConnected, LastRSContactTime;
 
-            if not StudioConnected:
-                StudioConnected = True;
-                print(f'[Silicon Server] Roblox Studio connected successfully from {self.client_address[0]}!');
+            ParsedURL = urllib.parse.urlparse(self.path);
+            PathName: str = (ParsedURL.path);
+            UserAgent: str = (self.headers.get('User-Agent') or '');
+            IsCLIRequest: bool = ('python-requests' in UserAgent.lower()) or (PathName in ('/stop', '/shutdown'));
+
+            if not IsCLIRequest:
+                LastRSContactTime = time.time();
+
+                if not RSConnected:
+                    RSConnected = True;
+                    print(f'[Silicon Server] RS connected successfully from {self.client_address[0]}!');
 
             try:
                 if not GETEnabled:
@@ -962,8 +1199,6 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
 
                     return;
 
-                ParsedURL = urllib.parse.urlparse(self.path);
-                PathName: str = (ParsedURL.path);
                 QueryParams: Dict[str, List[str]] = urllib.parse.parse_qs(ParsedURL.query);
 
                 if (PathName == '/changes') or PathName.endswith('/changes'):
@@ -971,13 +1206,21 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                     Timeout: float = float(QueryParams.get('timeout', [5.0])[0]);
                     Timeout = max(0.0, min(15.0, Timeout));
 
-                    EventsList, LatestID = ChangeEventsQueue.GetEventsSince(SinceID, Timeout);
+                    RawEventsList, LatestID = ChangeEventsQueue.GetEventsSince(SinceID, Timeout);
+                    EventsList: List[Dict[str, Any]] = [ ];
+
+                    for EventItem in RawEventsList:
+                        if (EventItem.get('action') == 'clear_project'):
+                            if ConsumePendingRSClear():
+                                EventsList.append(EventItem);
+                        else:
+                            EventsList.append(EventItem);
 
                     if EventsList:
                         PathsSummary: str = ', '.join([str(E.get('path', 'unknown')) for E in EventsList[:3]]);
                         if (len(EventsList) > 3):
                             PathsSummary += f' and {len(EventsList) - 3} more';
-                        print(f'[Silicon Server] Dispatched {len(EventsList)} change event(s) to Roblox Studio: <{PathsSummary}>');
+                        print(f'[Silicon Server] Dispatched {len(EventsList)} change event(s) to RS: <{PathsSummary}>');
 
                     ChangesResponse: Dict[str, Any] = {
                         'events'  : EventsList,
@@ -1016,6 +1259,31 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
 
                     return;
 
+                if (PathName in ('/clear', '/clear_project')) or PathName.endswith('/clear') or PathName.endswith('/clear_project'):
+                    ClearedItems: int = ClearProjectDirectory(NotifyRS = True);
+                    ClearPayload: bytes = json.dumps({ 'Status': 'Cleared', 'ClearedCount': ClearedItems }).encode('utf-8');
+
+                    self.send_response(200);
+                    self.send_header('Content-Type', 'application/json');
+                    self.send_header('Content-Length', str(len(ClearPayload)));
+                    self.end_headers();
+                    self.wfile.write(ClearPayload);
+
+                    return;
+
+                if (PathName in ('/stop', '/shutdown')) or PathName.endswith('/stop') or PathName.endswith('/shutdown'):
+                    StopPayload: bytes = json.dumps({ 'Status': 'Stopping' }).encode('utf-8');
+
+                    self.send_response(200);
+                    self.send_header('Content-Type', 'application/json');
+                    self.send_header('Content-Length', str(len(StopPayload)));
+                    self.end_headers();
+                    self.wfile.write(StopPayload);
+
+                    Thread(target = StopHTTPServer, daemon = True).start();
+
+                    return;
+
                 OK: bool = True;
 
                 StatusHeader: Dict[str, str] = Settings.get('StatusHeader', { });
@@ -1034,10 +1302,10 @@ def GetHandler(POSTEnabled: Optional[bool] = True, GETEnabled: Optional[bool] = 
                     Response = Settings;
 
                 elif (RequestType == ExpectedDataType) or (PathName in ('/export', '/files')):
-                    print('[Silicon Server] Studio requested full import: Gathering local objects from disk...');
+                    print('[Silicon Server] RS requested full import: Gathering local objects from disk...');
                     Response = Export(Script);
                     FilesCount: int = len(Response.get('files', [ ])) if isinstance(Response, dict) else 0;
-                    print(f'[Silicon Server] Sent {FilesCount} object(s) to Roblox Studio.');
+                    print(f'[Silicon Server] Sent {FilesCount} object(s) to RS.');
 
                 elif (RequestType == ExpectedStatusType) or (not RequestType and PathName in ('/', '')):
                     Response = AliveResponse;
@@ -1134,7 +1402,7 @@ def LoadSettings(ExplicitSettingsPath: Optional[str] = None) -> (Dict[str, Any])
         SettingsFilePath = os.path.join(ScriptPath, 'silicon.yaml');
 
     else:
-        SettingsFilePath = os.path.join(os.path.dirname(__file__), 'Settings.yaml');
+        SettingsFilePath = os.path.join(SiliconScriptDir, 'Settings.yaml');
 
     try:
         with open(SettingsFilePath, 'r') as File:
@@ -1303,32 +1571,23 @@ def Export(ScriptToSynchronize: Optional[str] = None) -> (Dict[str, Any]):
 
 
 if (__name__ == '__main__'):
-    if (len(sys.argv) == 1):
-        DefaultCommandSetting: str = Settings.get('DefaultCommand', Settings.get('Command', 'Bidirectional'));
-        sys.argv.append(DefaultCommandSetting);
+    Parser: ArgumentParser = argparse.ArgumentParser(description = 'Silicon IDE Daemon for RS synchronization');
 
-    Parser: ArgumentParser = argparse.ArgumentParser(description = 'Export or run a server for synchronizing uni or bilaterally from or to Roblox Studio');
-    Subparsers: _SubParsersAction = Parser.add_subparsers(dest = 'command', required = True, help = 'Command to run');
+    for ArgumentName, ArgumentShort, ArgumentType, ArgumentDescription in DaemonArguments:
+        Parser.add_argument(ArgumentName, ArgumentShort, type = ArgumentType, help = ArgumentDescription);
 
-    for CommandName, CommandDescription in DescriptionsForSubparsers.items():
-        Subparser: ArgumentParser = Subparsers.add_parser(CommandName, help = CommandDescription);
-
-        for ArgumentName, ArgumentShort, ArgumentType, ArgumentDescription in ArgumentsForSubparsers:
-            Subparser.add_argument(ArgumentName, ArgumentShort, type = ArgumentType, help = ArgumentDescription);
-
-        Subparser.add_argument('--AllDescendants', '-a', action = 'store_true', default = False, help = 'Synchronize all descendants of game, not only direct ancestry of scripts');
+    Parser.add_argument('--AllDescendants', '-a', action = 'store_true', default = False, help = 'Synchronize all descendants of game, not only direct ancestry of scripts');
+    Parser.add_argument('--Stop', '-x', action = 'store_true', default = False, help = 'Stop the currently running Silicon server');
+    Parser.add_argument('--Clear', '-c', action = 'store_true', default = False, help = 'Clear all synchronized project files in Silicon/Game by moving them to the Recycle Bin');
 
     Arguments: Namespace = Parser.parse_args();
 
-    Command: str = Arguments.command;
-    SynchronizeAllDescendantsFlag: bool = getattr(Arguments, 'AllDescendants', False) or (Command == 'AllDescendants');
-    Settings['SynchronizeAllDescendants'] = SynchronizeAllDescendantsFlag;
-    Settings['SyncAllDescendants'] = SynchronizeAllDescendantsFlag;
+    SynchronizeAllDescendantsFlag: bool = getattr(Arguments, 'AllDescendants', False);
+    StopServerFlag: bool = getattr(Arguments, 'Stop', False);
+    ClearProjectFlag: bool = getattr(Arguments, 'Clear', False);
 
     if Arguments.Settings:
         Settings = LoadSettings(Arguments.Settings);
-        Settings['SynchronizeAllDescendants'] = SynchronizeAllDescendantsFlag;
-        Settings['SyncAllDescendants'] = SynchronizeAllDescendantsFlag;
         PN = Settings.get('PropertiesName', 'Properties');
         SN = Settings.get('SourceName', 'Source');
         PropertiesFileExtension = Settings.get('PropertiesFileExtension', 'yaml').lower();
@@ -1339,35 +1598,68 @@ if (__name__ == '__main__'):
         PluginFolderName = Settings.get('PluginFolderName', 'Plugin');
         RecycleBinFolderName = Settings.get('RecycleBinFolderName', Settings.get('RecycleBinName', 'Recycle Bin'));
 
+    if SynchronizeAllDescendantsFlag:
+        Settings['SynchronizeAllDescendants'] = True;
+        Settings['SyncAllDescendants'] = True;
+
     BasePath = ResolveGameBasePath(Arguments.Target);
 
     Host: str = (Arguments.Host) or Settings.get('ServerHost', 'localhost');
     Port: int = (Arguments.Port) or Settings.get('ServerPort', 6969);
 
     ServerURL: str = f'http://{Host}:{Port}';
-    ServerType: Optional[str] = None;
+    ServerType: str = (getattr(Arguments, 'Requests', None) or Settings.get('ServerType', 'POST GET')).lower();
 
-    Script: Optional[str] = None;
+    Script: Optional[str] = (Arguments.Script) or Settings.get('ScriptToSynchronize') or Settings.get('Script');
 
-    DataSharingMessage: str = '';
+    if ClearProjectFlag:
+        ClearedViaServer: bool = False;
 
-    if (Command == 'Server'):
-        ServerType = (Arguments.Requests);
+        try:
+            ClearResponse: requests.Response = requests.post(
+                f'{ServerURL}/clear',
+                json    = { 'origin': 'IDE' },
+                timeout = 2.0,
+            );
+            ClearedViaServer = ((ClearResponse.status_code) == 200);
 
-    else:
-        Script = (Arguments.Script) or Settings.get('ScriptToSynchronize') or Settings.get('Script');
+        except Exception:
+            pass;
+
+        if ClearedViaServer:
+            print(f'[Silicon Server] Cleared project directory via running server at {ServerURL}!');
+
+        else:
+            ClearProjectDirectory(BasePath, NotifyRS = False);
+
+        sys.exit(0);
+
+    if StopServerFlag:
+        StoppedCleanly: bool = False;
+
+        try:
+            StopResponse: requests.Response = requests.post(f'{ServerURL}/stop', timeout = 2.0);
+            StoppedCleanly = ((StopResponse.status_code) == 200);
+
+        except Exception:
+            pass;
+
+        if StoppedCleanly:
+            print(f'[Silicon Server] Successfully stopped the Silicon server at {ServerURL}!');
+
+        else:
+            print(f'[Silicon Server] No active Silicon server found at {ServerURL}.');
+
+        sys.exit(0);
 
     if not IsHTTPServerRunning(ServerURL):
-        ServerType = ServerType or ServerTypesForSubparsers.get(Command, Settings.get('ServerType', 'POST GET'));
-        ServerType = ServerType.lower();
-
         os.makedirs(BasePath, exist_ok = True);
         StartWatcher();
 
         ThreadingHTTPServer.allow_reuse_address = True;
         Server = ThreadingHTTPServer(
             (Host, Port),
-            GetHandler(('p' in ServerType), ('g' in ServerType), (Command in OneTimeConnectionServerTypes))
+            GetHandler(('p' in ServerType), ('g' in ServerType), False)
         );
         Server.daemon_threads = True;
         ServerThread = threading.Thread(
@@ -1378,35 +1670,21 @@ if (__name__ == '__main__'):
         Version: str = Settings.get('Version', '0.0.0');
         print(f'[Silicon Server] Silicon IDE Daemon v{Version} started!');
         print(f'[Silicon Server] Successfully started server! - Listening on {ServerURL}');
-        print(f'[Silicon Server] Waiting for Roblox Studio connection...');
+        print('[Silicon Server] Waiting for RS connection...');
+        print('[Silicon Server] Mode and commands are driven from RS.');
+        print('[STANDBY LISTENER: READY FOR RS COMMANDS]');
+        print('IDE <-> RS');
+
+        try:
+            while WatcherRunning and ServerThread and ServerThread.is_alive():
+                time.sleep(1.0);
+
+        except KeyboardInterrupt:
+            StopHTTPServer();
 
     else:
         Version: str = Settings.get('Version', '0.0.0');
         print(f'[Silicon Server] Silicon IDE Daemon v{Version} is already running on {ServerURL}!');
+        print('[STANDBY LISTENER: READY FOR RS COMMANDS]');
+        print('IDE <-> RS');
 
-    if ('synchronize' in Command.lower()) or ('bidirectional' in Command.lower()):
-        print('[LIVE CONNECTION]');
-
-    else:
-        print('[SINGLE-TIME CONNECTION]');
-
-    if ('fromroblox' in Command.lower()) or ('fromstudio' in Command.lower()):
-        print('[INITIAL SYNCHRONIZATION: ROBLOX -> IDE]');
-    elif ('fromide' in Command.lower()):
-        print('[INITIAL SYNCHRONIZATION: IDE -> ROBLOX]');
-
-    if ('AllDescendants' in Command) or SynchronizeAllDescendantsFlag:
-        print('[MODE: ALL DESCENDANTS (FULL PLACE SYNCHRONIZATION)]');
-    else:
-        print('[MODE: SCRIPT ANCESTRY ONLY]');
-
-    if ('Export' in Command):
-        DataSharingMessage = '->';
-
-    elif ('Import' in Command):
-        DataSharingMessage = '<-';
-
-    else:
-        DataSharingMessage = '<->';
-
-    print(f'IDE {DataSharingMessage} Roblox Studio');

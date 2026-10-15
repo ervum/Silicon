@@ -54,6 +54,65 @@ local State: { IsApplyingRemoteUpdate: boolean } = {
 
 
 
+local RegisteredUIRoot: Instance? = nil;
+
+
+
+local function SetPluginUIRoot(UIRoot: Instance?): ()
+	RegisteredUIRoot = UIRoot;
+
+	return;
+end
+
+local function SyncPluginUIContainer(PluginContainer: Instance): ()
+	local TargetUIRoot: Instance? = RegisteredUIRoot;
+
+	if not TargetUIRoot then return end
+
+	local UIFolder: Instance? = PluginContainer:FindFirstChild('UI');
+
+	if not UIFolder or not UIFolder:IsA('Folder') then
+		if UIFolder then
+			UIFolder:Destroy();
+		end
+
+		local NewUIFolder: Folder = Instance.new('Folder');
+
+		NewUIFolder.Name = 'UI';
+		NewUIFolder.Archivable = true;
+		NewUIFolder.Parent = PluginContainer;
+
+		UIFolder = NewUIFolder;
+	end
+
+	local ExistingUIClone: Instance? = (UIFolder :: Instance):FindFirstChild((TargetUIRoot.Name));
+
+	if not ExistingUIClone or (#ExistingUIClone:GetDescendants() ~= #TargetUIRoot:GetDescendants()) then
+		if ExistingUIClone then
+			ExistingUIClone:Destroy();
+		end
+
+		pcall(function(): ()
+			TargetUIRoot.Archivable = true;
+
+			for _: number, UIDescendant: Instance in TargetUIRoot:GetDescendants() do
+				UIDescendant.Archivable = true;
+			end
+
+			local UIClone: Instance? = TargetUIRoot:Clone();
+
+			if UIClone then
+				UIClone.Archivable = true;
+				UIClone.Parent = UIFolder;
+			end
+
+			return;
+		end);
+	end
+
+	return;
+end
+
 local function EnsurePluginCopy(): (Instance?)
 	local ServiceSuccess: boolean, ServiceResult: any = pcall(function(): (Instance)
 		return game:GetService('ReplicatedStorage');
@@ -64,7 +123,7 @@ local function EnsurePluginCopy(): (Instance?)
 	if not ReplicatedStorageInstance then return nil end
 
 	local ConfiguredRootFolderName: string = (Settings.RootFolderName or RootFolderName or 'Silicon');
-	local ConfiguredPluginFolderName: string = (Settings.PluginFolderName or PluginFolderName or 'Silicon');
+	local ConfiguredPluginFolderName: string = (Settings.PluginFolderName or PluginFolderName or 'Plugin');
 
 	local RootFolder: Instance? = ReplicatedStorageInstance:FindFirstChild(ConfiguredRootFolderName);
 
@@ -123,6 +182,10 @@ local function EnsurePluginCopy(): (Instance?)
 		end
 	end
 
+	if PluginContainer and PluginContainer:IsA('Folder') then
+		SyncPluginUIContainer(PluginContainer);
+	end
+
 	return PluginContainer;
 end
 
@@ -154,5 +217,6 @@ return {
 	PluginFolderName            = PluginFolderName,
 	RecycleBinFolderName        = RecycleBinFolderName,
 	EnsurePluginCopy            = EnsurePluginCopy,
+	SetPluginUIRoot             = SetPluginUIRoot,
 	GetAncestry                 = GetAncestry,
 } :: { [string]: any };

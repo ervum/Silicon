@@ -24,17 +24,18 @@ return {
 	CleanUpBeforeImportInRS        = true,
 	SynchronizeAllDescendants      = false,    ---> If false, only scripts and their direct ancestry are synchronized. If true, all place descendants are synchronized.
 	SyncAllDescendants             = false,
+	InitialSyncFromRS              = false,    ---> If true, initial synchronization in LIVE modes exports from RS to IDE. If false, initial synchronization imports from IDE to RS.
+	ShowRibbonTab                  = true,     ---> Whether the custom Silicon Ribbon Tab is visible in Roblox RS.
 	
 	TargetDirectory                = nil :: string?,     ---> Equivalent to `--Target` / `-p`. Absolute or relative path where Game files are stored on disk.
 	ScriptToSynchronize            = nil :: string?,     ---> Equivalent to `--Script` / `-S`. Path to a specific script to process along with its ancestry.
-	DefaultCommand                 = 'Bidirectional',   ---> Default synchronization mode if none is passed on CLI.
 	CustomSettingsPath             = nil :: string?,     ---> Equivalent to `--Settings` / `-s`. Path to an alternative Settings configuration file.
 	
 	SynchronizationIDEDebounceTime = 10.0,
 	SynchronizationRSDebounceTime  = 0.1,
 	LongPollTimeout                = 5.0,
 	
-	ConflictMode                   = 'Local-authoritative', ---> 'Local-authoritative' | 'Studio-authoritative' | 'Merging'
+	ConflictMode                   = 'Both',    ---> 'Both' | 'Delete' | 'IDE' | 'RS'
 	
 	RootFolderName                 = 'Silicon',
 	PluginFolderName               = 'Plugin',

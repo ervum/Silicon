@@ -23,7 +23,7 @@ local ExportPropertyBlacklist: { [number]: string }, ExportDuplicated: boolean =
 local Host: string = (Settings.ServerHost or 'localhost');
 local Port: number = (Settings.ServerPort or 6969);
 local RootFolderName: string = (Settings.RootFolderName or 'Silicon');
-local PluginFolderName: string = (Settings.PluginFolderName or 'Silicon');
+local PluginFolderName: string = (Settings.PluginFolderName or 'Plugin');
 local RecycleBinFolderName: string = (Settings.RecycleBinFolderName or 'Recycle Bin');
 local ChunkSize: number = (Settings.ExportFromRSDataChunkSize);
 local IgnoredAncestors: { [number]: string } = (Settings.IgnoredAncestors);
@@ -358,23 +358,26 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 
 	IsLIVE = (IsLIVE == true);
 
-	local LocalSyncAllDescendants: boolean? = Settings.SyncAllDescendants;
+	local LocalSyncAllDescendants: boolean = (Settings.SynchronizeAllDescendants == true) or (Settings.SyncAllDescendants == true);
+
+	Connect.PostSettings({
+		SynchronizeAllDescendants = LocalSyncAllDescendants,
+		SyncAllDescendants        = LocalSyncAllDescendants,
+	});
+
 	local RemoteSettings: any = Connect.GetSettings();
 
 	if (type(RemoteSettings) == 'table') and RemoteSettings.ServerPort then
-		Settings = RemoteSettings;
+		Settings.SynchronizeAllDescendants = LocalSyncAllDescendants;
+		Settings.SyncAllDescendants = LocalSyncAllDescendants;
 
-		if (LocalSyncAllDescendants ~= nil) then
-			Settings.SyncAllDescendants = LocalSyncAllDescendants;
-		end
-
-		Host = (Settings.ServerHost or Host);
-		Port = (Settings.ServerPort or Port);
-		RootFolderName = (Settings.RootFolderName or RootFolderName or 'Silicon');
-		PluginFolderName = (Settings.PluginFolderName or PluginFolderName or 'Silicon');
-		RecycleBinFolderName = (Settings.RecycleBinFolderName or RecycleBinFolderName or 'Recycle Bin');
-		ChunkSize = (Settings.ExportFromRSDataChunkSize or ChunkSize);
-		IgnoredAncestors = (Settings.IgnoredAncestors or IgnoredAncestors);
+		Host = (RemoteSettings.ServerHost or Settings.ServerHost or Host);
+		Port = (RemoteSettings.ServerPort or Settings.ServerPort or Port);
+		RootFolderName = (RemoteSettings.RootFolderName or Settings.RootFolderName or RootFolderName or 'Silicon');
+		PluginFolderName = (RemoteSettings.PluginFolderName or Settings.PluginFolderName or PluginFolderName or 'Plugin');
+		RecycleBinFolderName = (RemoteSettings.RecycleBinFolderName or Settings.RecycleBinFolderName or RecycleBinFolderName or 'Recycle Bin');
+		ChunkSize = (RemoteSettings.ExportFromRSDataChunkSize or Settings.ExportFromRSDataChunkSize or ChunkSize);
+		IgnoredAncestors = (RemoteSettings.IgnoredAncestors or Settings.IgnoredAncestors or IgnoredAncestors);
 	end
 
 	if ObjectToSynchronize then
@@ -383,7 +386,7 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 		return;
 	end
 
-	local ShouldSynchronizeAllDescendants: boolean = (Settings.SynchronizeAllDescendants == true) or (Settings.SyncAllDescendants == true) or (Settings.SynchronizationMode == 'AllDescendants') or (Settings.SyncMode == 'AllDescendants');
+	local ShouldSynchronizeAllDescendants: boolean = LocalSyncAllDescendants;
 
 	print(`[Silicon Export] Scanning place hierarchy ({ShouldSynchronizeAllDescendants and 'All Descendants' or 'Script Ancestry Only'}) to export to IDE...`);
 
@@ -421,7 +424,7 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 			end
 		end
 
-		---> Always preserve and export the in-Studio Recycle Bin and all its contents
+		---> Always preserve and export the in-RS Recycle Bin and all its contents
 		local ServiceSuccess: boolean, ServiceResult: any = pcall(function(): (Instance)
 			return game:GetService('ReplicatedStorage');
 		end);
@@ -493,7 +496,7 @@ return function(ObjectToSynchronize: Instance?, IsLIVE: boolean?): ()
 		end
 	end
 
-	print(`[Silicon Export] Exporting {ObjectCount} object{(ObjectCount ~= 1) and 's' or ''} from Roblox Studio to IDE...`);
+	print(`[Silicon Export] Exporting {ObjectCount} object{(ObjectCount ~= 1) and 's' or ''} from RS to IDE...`);
 
 	local TargetHost: string = Host or (Settings.ServerHost) or 'localhost';
 	local TargetPort: number = Port or (Settings.ServerPort) or 6969;

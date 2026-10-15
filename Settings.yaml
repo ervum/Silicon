@@ -27,7 +27,6 @@ SourceFileExtension           : 'luau'   # Typically, 'Lua' or 'Luau'.
 # ------------------------------------------------------------------------------
 TargetDirectory               : ~        # Equivalent to `--Target` / `-p`. Absolute or relative path where Game files are stored (e.g. 'C:/Users/User/Desktop/Game'). If null (~), defaults to 'Silicon/Game'.
 ScriptToSynchronize           : ~        # Equivalent to `--Script` / `-S`. Path to a specific script to process along with its ancestry. If null (~), all scripts are processed.
-DefaultCommand                : 'Bidirectional' # Default synchronization mode if none is passed on CLI ('Bidirectional', 'BidirectionalFromRoblox', 'BidirectionalFromIDE', 'AllDescendants', 'Export', 'Import', 'Server').
 CustomSettingsPath            : ~        # Equivalent to `--Settings` / `-s`. Path to an alternative Settings.yaml configuration file.
 
 # ------------------------------------------------------------------------------
@@ -38,8 +37,10 @@ CleanUpBeforeImportInRS       : true
 
 SynchronizeAllDescendants     : false    # If false, only scripts and their direct ancestry are synchronized. If true, all place descendants are synchronized. (CLI: --AllDescendants / -a).
 SyncAllDescendants            : false
+InitialSyncFromRS             : false    # If true, initial synchronization in LIVE modes exports from RS to IDE. If false, initial synchronization imports from IDE to RS.
+ShowRibbonTab                 : false     # Whether the custom Silicon Ribbon Tab is visible in Roblox RS.
 
-ConflictMode                  : 'Local-authoritative' # Conflict resolution policy: 'Local-authoritative' | 'Studio-authoritative' | 'Merging'.
+ConflictMode                  : 'Both'   # Conflict resolution policy: 'Both' | 'Delete' | 'IDE' | 'RS'.
 
 SynchronizationIDEDebounceTime: 10.0
 SynchronizationRSDebounceTime : 0.1

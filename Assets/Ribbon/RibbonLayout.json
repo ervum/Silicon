@@ -47,7 +47,7 @@
                 "Type": "Custom",
                 "Filename": "SiliconTab"
             },
-            "Visible": true
+            "Visible": false
         }
     ]
 }

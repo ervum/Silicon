@@ -1,46 +1,178 @@
 {
+  "Identifier": {
+    "Type": "Custom",
+    "Filename": "SiliconTab"
+  },
   "Name": "Silicon",
-  "Controls": [
+  "TabControls": [
     {
-      "Id": "SiliconOpenUIButton",
-      "Type": "Button",
-      "Text": "Silicon UI",
+      "Id": "SiliconLaunchButton",
+      "Type": "IconButton",
+      "Size": "Large",
+      "Icon": "rbxassetid://78911552761219",
+      "Text": "Launch Silicon",
+      "Tooltip": "Open the Silicon synchronization dashboard and controls",
       "Action": {
-        "PluginId": "user_Silicon.rbxmx",
-        "DataModel": "Standalone",
+        "DataModel": "Edit",
+        "PluginType": "Local",
+        "PluginId": "Silicon.rbxmx",
         "Category": "Actions",
-        "ItemId": "SiliconOpenUI"
+        "ItemId": "Silicon_LaunchSilicon"
       }
     },
     {
+      "Id": "SiliconSeparator1",
+      "Type": "Separator",
+      "Size": "Large"
+    },
+    {
       "Id": "SiliconBidirectionalButton",
-      "Type": "Button",
-      "Text": "Live Sync",
+      "Type": "IconButton",
+      "Size": "Large",
+      "Icon": "rbxassetid://78911552761219",
+      "Text": "Bidirectional",
+      "Tooltip": "Toggle two-way live synchronization between IDE and RS",
       "Action": {
-        "PluginId": "user_Silicon.rbxmx",
-        "DataModel": "Standalone",
+        "DataModel": "Edit",
+        "PluginType": "Local",
+        "PluginId": "Silicon.rbxmx",
         "Category": "Actions",
         "ItemId": "SiliconBidirectional"
       }
     },
     {
-      "Id": "SiliconExportButton",
-      "Type": "Button",
-      "Text": "Export",
+      "Id": "SiliconUnidirectionalButton",
+      "Type": "IconButton",
+      "Size": "Large",
+      "Icon": "rbxassetid://78911552761219",
+      "Text": "Unidirectional",
+      "Tooltip": "Toggle one-way live synchronization based on the Initial Sync From RS setting",
       "Action": {
-        "PluginId": "user_Silicon.rbxmx",
-        "DataModel": "Standalone",
+        "DataModel": "Edit",
+        "PluginType": "Local",
+        "PluginId": "Silicon.rbxmx",
+        "Category": "Actions",
+        "ItemId": "SiliconUnidirectional"
+      }
+    },
+    {
+      "Id": "SiliconSeparator2",
+      "Type": "Separator",
+      "Size": "Large"
+    },
+    {
+      "Id": "SiliconExportButton",
+      "Type": "IconButton",
+      "Size": "Large",
+      "Icon": "rbxassetid://78911552761219",
+      "Text": "Export to IDE",
+      "Tooltip": "Export RS objects to local IDE files",
+      "Action": {
+        "DataModel": "Edit",
+        "PluginType": "Local",
+        "PluginId": "Silicon.rbxmx",
         "Category": "Actions",
         "ItemId": "SiliconExport"
       }
     },
     {
       "Id": "SiliconImportButton",
-      "Type": "Button",
-      "Text": "Import",
+      "Type": "IconButton",
+      "Size": "Large",
+      "Icon": "rbxassetid://78911552761219",
+      "Text": "Import to RS",
+      "Tooltip": "Import local IDE files into RS",
       "Action": {
-        "PluginId": "user_Silicon.rbxmx",
-        "DataModel": "Standalone",
+        "DataModel": "Edit",
+        "PluginType": "Local",
+        "PluginId": "Silicon.rbxmx",
+        "Category": "Actions",
+        "ItemId": "SiliconImport"
+      }
+    }
+  ],
+  "Controls": [
+    {
+      "Id": "SiliconLaunchButton",
+      "Type": "IconButton",
+      "Size": "Large",
+      "Icon": "rbxassetid://78911552761219",
+      "Text": "Launch Silicon",
+      "Tooltip": "Open the Silicon synchronization dashboard and controls",
+      "Action": {
+        "DataModel": "Edit",
+        "PluginType": "Local",
+        "PluginId": "Silicon.rbxmx",
+        "Category": "Actions",
+        "ItemId": "Silicon_LaunchSilicon"
+      }
+    },
+    {
+      "Id": "SiliconSeparator1",
+      "Type": "Separator",
+      "Size": "Large"
+    },
+    {
+      "Id": "SiliconBidirectionalButton",
+      "Type": "IconButton",
+      "Size": "Large",
+      "Icon": "rbxassetid://78911552761219",
+      "Text": "Bidirectional",
+      "Tooltip": "Toggle two-way live synchronization between IDE and RS",
+      "Action": {
+        "DataModel": "Edit",
+        "PluginType": "Local",
+        "PluginId": "Silicon.rbxmx",
+        "Category": "Actions",
+        "ItemId": "SiliconBidirectional"
+      }
+    },
+    {
+      "Id": "SiliconUnidirectionalButton",
+      "Type": "IconButton",
+      "Size": "Large",
+      "Icon": "rbxassetid://78911552761219",
+      "Text": "Unidirectional",
+      "Tooltip": "Toggle one-way live synchronization based on the Initial Sync From RS setting",
+      "Action": {
+        "DataModel": "Edit",
+        "PluginType": "Local",
+        "PluginId": "Silicon.rbxmx",
+        "Category": "Actions",
+        "ItemId": "SiliconUnidirectional"
+      }
+    },
+    {
+      "Id": "SiliconSeparator2",
+      "Type": "Separator",
+      "Size": "Large"
+    },
+    {
+      "Id": "SiliconExportButton",
+      "Type": "IconButton",
+      "Size": "Large",
+      "Icon": "rbxassetid://78911552761219",
+      "Text": "Export to IDE",
+      "Tooltip": "Export RS objects to local IDE files",
+      "Action": {
+        "DataModel": "Edit",
+        "PluginType": "Local",
+        "PluginId": "Silicon.rbxmx",
+        "Category": "Actions",
+        "ItemId": "SiliconExport"
+      }
+    },
+    {
+      "Id": "SiliconImportButton",
+      "Type": "IconButton",
+      "Size": "Large",
+      "Icon": "rbxassetid://78911552761219",
+      "Text": "Import to RS",
+      "Tooltip": "Import local IDE files into RS",
+      "Action": {
+        "DataModel": "Edit",
+        "PluginType": "Local",
+        "PluginId": "Silicon.rbxmx",
         "Category": "Actions",
         "ItemId": "SiliconImport"
       }

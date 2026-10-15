@@ -74,12 +74,23 @@ function Connect.PostSettings(NewSettings: { [string]: any }, Host: string?, Por
 	SettingsHeader = SettingsHeader or DefaultSettingsHeader;
 
 	local SettingsJSON: string = HTTP:JSONEncode(NewSettings);
+	local ResponseData: { [string]: any } = { };
 
-	pcall(function(): ()
-		HTTP:PostAsync(`http://{Host}:{Port}/settings`, SettingsJSON, (Enum.HttpContentType.ApplicationJson), false, SettingsHeader);
+	local Success: boolean, ResponseString: string? = pcall(function(): (string)
+		return HTTP:PostAsync(`http://{Host}:{Port}/settings`, SettingsJSON, (Enum.HttpContentType.ApplicationJson), false, SettingsHeader);
 	end);
 
-	return Settings;
+	if Success and ResponseString and (ResponseString ~= '') then
+		local DecodeSuccess: boolean, Decoded: any = pcall(function(): (any)
+			return HTTP:JSONDecode(ResponseString);
+		end);
+
+		if DecodeSuccess and (type(Decoded) == 'table') then
+			ResponseData = Decoded;
+		end
+	end
+
+	return ResponseData;
 end
 
 function Connect.GetSettings(Host: string?, Port: string?, SettingsHeader: { [string]: string }?): ({ [string]: (string | number | boolean | { [number]: string })})
@@ -191,6 +202,21 @@ function Connect.GetData(Host: string?, Port: string?): (T.DataRoot?)
 	end	
 
 	return Response and HTTP:JSONDecode(Response) or { };
+end
+
+function Connect.ClearProject(Host: string?, Port: string?): (boolean)
+	Host, Port = Host or DefaultHost, Port or DefaultPort;
+
+	local TargetURL: string = `http://{Host}:{Port}/clear`;
+	local Payload: string = HTTP:JSONEncode({
+		origin = 'RS',
+	});
+
+	local Success: boolean, _: string? = pcall(function(): (string)
+		return HTTP:PostAsync(TargetURL, Payload, (Enum.HttpContentType.ApplicationJson));
+	end);
+
+	return Success;
 end
 
 

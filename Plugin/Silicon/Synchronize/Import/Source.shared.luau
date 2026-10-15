@@ -19,7 +19,7 @@ local MaximumLengthScriptContainer: string, MaximumScriptLength: number = (Setti
 local Host: string = (Settings.ServerHost or 'localhost');
 local Port: number = (Settings.ServerPort or 6969);
 local RootFolderName: string = (Settings.RootFolderName or 'Silicon');
-local PluginFolderName: string = (Settings.PluginFolderName or 'Silicon');
+local PluginFolderName: string = (Settings.PluginFolderName or 'Plugin');
 local RecycleBinFolderName: string = (Settings.RecycleBinFolderName or 'Recycle Bin');
 local IgnoredAncestors: { [number]: string } = (Settings.IgnoredAncestors or { });
 
@@ -1052,16 +1052,24 @@ local function SafelyDeleteOrRecycle(TargetObject: Instance, RelativePath: strin
 		end
 	end
 
-	print(`[Silicon Import] Moved deleted object <{RelativePath}> to Studio Recycle Bin.`);
+	print(`[Silicon Import] Moved deleted object <{RelativePath}> to RS Recycle Bin.`);
 
 	return true;
 end
+
+local ClearRSProject: (() -> (number));
 
 local function ApplyIncrementalChange(Event: { [string]: any }): ()
 	EnsurePluginCopy();
 
 	local Action: string = Event.action or 'update_properties';
 	local RelativePath: string = Event.path or '';
+
+	if (Action == 'clear_project') then
+		ClearRSProject();
+
+		return;
+	end
 
 	if (RelativePath == '') then return end
 
@@ -1085,18 +1093,31 @@ local function ApplyIncrementalChange(Event: { [string]: any }): ()
 
 	if (Action == 'update_properties') or (Action == 'create') then
 		local ClassName: string = Event.className or 'Folder';
-		local TargetInstance: Instance? = EnsureInstanceHierarchy(RelativePath, ClassName);
+		local ShouldSynchronizeAllDescendants: boolean = (Settings.SynchronizeAllDescendants == true) or (Settings.SyncAllDescendants == true);
+		local IsScriptClass: boolean = (ClassName == 'Script') or (ClassName == 'LocalScript') or (ClassName == 'ModuleScript');
+		local ExistingInstance: Instance? = FindInstanceByRelativePath(RelativePath);
+		local HasScriptDescendant: boolean = (ExistingInstance ~= nil) and (ExistingInstance:IsA('LuaSourceContainer') or (ExistingInstance:FindFirstChildWhichIsA('LuaSourceContainer', true) ~= nil));
 
-		if TargetInstance then
-			ApplyPropertiesToObject(TargetInstance, Event.properties, Event.attributes, Event.tags);
+		if ShouldSynchronizeAllDescendants or IsScriptClass or HasScriptDescendant then
+			local TargetInstance: Instance? = EnsureInstanceHierarchy(RelativePath, ClassName);
 
-			print(`[Silicon Import] Synchronized properties of <{RelativePath}> ({ClassName}) into Roblox Studio!`);
+			if TargetInstance then
+				ApplyPropertiesToObject(TargetInstance, Event.properties, Event.attributes, Event.tags);
+
+				print(`[Silicon Import] Synchronized properties of <{RelativePath}> ({ClassName}) into RS!`);
+			end
 		end
 	end
 
 	if (Action == 'update_source') then
 		local TargetInstance: Instance? = FindInstanceByRelativePath(RelativePath);
 		local Source: string = Event.source or '';
+
+		if not TargetInstance then
+			local ScriptType: string? = Event.scriptType;
+			local InferredClassName: string = (ScriptType == 'client') and 'LocalScript' or ((ScriptType == 'server') and 'Script' or 'ModuleScript');
+			TargetInstance = EnsureInstanceHierarchy(RelativePath, InferredClassName);
+		end
 
 		if TargetInstance and TargetInstance:IsA('LuaSourceContainer') then
 			LastKnownScriptHashes[RelativePath] = Source;
@@ -1119,7 +1140,7 @@ local function ApplyIncrementalChange(Event: { [string]: any }): ()
 				end);
 			end
 
-			print(`[Silicon Import] Synchronized script source of <{RelativePath}> into Roblox Studio!`);
+			print(`[Silicon Import] Synchronized script source of <{RelativePath}> into RS!`);
 		end
 	end
 
@@ -1135,25 +1156,27 @@ local function Import(IsLIVE: boolean?): ()
 
 	IsLIVE = (IsLIVE == true);
 
-	local LocalSynchronizeAllDescendants: boolean? = Settings.SynchronizeAllDescendants or Settings.SyncAllDescendants;
+	local LocalSynchronizeAllDescendants: boolean = (Settings.SynchronizeAllDescendants == true) or (Settings.SyncAllDescendants == true);
+
+	Connect.PostSettings({
+		SynchronizeAllDescendants = LocalSynchronizeAllDescendants,
+		SyncAllDescendants        = LocalSynchronizeAllDescendants,
+	});
+
 	local RemoteSettings: any = Connect.GetSettings();
 
 	if (type(RemoteSettings) == 'table') and RemoteSettings.ServerPort then
-		Settings = RemoteSettings;
+		Settings.SynchronizeAllDescendants = LocalSynchronizeAllDescendants;
+		Settings.SyncAllDescendants = LocalSynchronizeAllDescendants;
 
-		if (LocalSynchronizeAllDescendants ~= nil) then
-			Settings.SynchronizeAllDescendants = LocalSynchronizeAllDescendants;
-			Settings.SyncAllDescendants = LocalSynchronizeAllDescendants;
-		end
-
-		Host = (Settings.ServerHost or Host);
-		Port = (Settings.ServerPort or Port);
-		RootFolderName = (Settings.RootFolderName or RootFolderName or 'Silicon');
-		PluginFolderName = (Settings.PluginFolderName or PluginFolderName or 'Silicon');
-		RecycleBinFolderName = (Settings.RecycleBinFolderName or RecycleBinFolderName or 'Recycle Bin');
+		Host = (RemoteSettings.ServerHost or Settings.ServerHost or Host);
+		Port = (RemoteSettings.ServerPort or Settings.ServerPort or Port);
+		RootFolderName = (RemoteSettings.RootFolderName or Settings.RootFolderName or RootFolderName or 'Silicon');
+		PluginFolderName = (RemoteSettings.PluginFolderName or Settings.PluginFolderName or PluginFolderName or 'Plugin');
+		RecycleBinFolderName = (RemoteSettings.RecycleBinFolderName or Settings.RecycleBinFolderName or RecycleBinFolderName or 'Recycle Bin');
 	end
 
-	print(`[Silicon Import] Requesting full import from IDE server at {Host}:{Port}...`);
+	print(`[Silicon Import] Requesting full import ({LocalSynchronizeAllDescendants and 'All Descendants' or 'Script Ancestry Only'}) from IDE server at {Host}:{Port}...`);
 
 	local Data: any = Connect.GetData(Host, Port);
 
@@ -1163,7 +1186,38 @@ local function Import(IsLIVE: boolean?): ()
 		return;
 	end
 
-	local ObjectsList: { [number]: { [string]: any } } = Data.files;
+	local RawObjectsList: { [number]: { [string]: any } } = Data.files;
+	local ObjectsList: { [number]: { [string]: any } } = { };
+
+	if LocalSynchronizeAllDescendants then
+		ObjectsList = RawObjectsList;
+	else
+		local ScriptAncestorPaths: { [string]: boolean } = { };
+
+		for _: number, RawItem: { [string]: any } in RawObjectsList do
+			local ItemPath: string = RawItem.path or '';
+			local ItemClass: string = RawItem.className or 'Folder';
+			local IsScriptItem: boolean = (RawItem.source ~= nil) or (ItemClass == 'Script') or (ItemClass == 'LocalScript') or (ItemClass == 'ModuleScript');
+
+			if (ItemPath ~= '') and IsScriptItem then
+				local PathSegments: { [number]: string } = string.split(ItemPath, '/');
+
+				for SegmentIndex: number = 1, #PathSegments do
+					local AncestorPath: string = table.concat(PathSegments, '/', 1, SegmentIndex);
+					ScriptAncestorPaths[AncestorPath] = true;
+				end
+			end
+		end
+
+		for _: number, RawItem: { [string]: any } in RawObjectsList do
+			local ItemPath: string = RawItem.path or '';
+
+			if (ItemPath ~= '') and ScriptAncestorPaths[ItemPath] then
+				table.insert(ObjectsList, RawItem);
+			end
+		end
+	end
+
 	local ObjectCount: number = #ObjectsList;
 
 	table.sort(ObjectsList, function(FirstItem: { [string]: any }, SecondItem: { [string]: any }): (boolean)
@@ -1181,10 +1235,10 @@ local function Import(IsLIVE: boolean?): ()
 		end
 	end
 
-	print(`[Silicon Import] Reconciling Roblox Studio objects with {ObjectCount} IDE object folder{(ObjectCount ~= 1) and 's' or ''}...`);
+	print(`[Silicon Import] Reconciling RS objects with {ObjectCount} IDE object folder{(ObjectCount ~= 1) and 's' or ''}...`);
 
 	local DeletedCount: number = 0;
-	local StudioObjectsToDelete: { [number]: Instance } = { };
+	local RSObjectsToDelete: { [number]: Instance } = { };
 
 	for _: number, ServiceName: string in SynchronizedServices do
 		local ServiceInstance: Instance? = nil;
@@ -1202,7 +1256,7 @@ local function Import(IsLIVE: boolean?): ()
 		if not ServiceInstance then continue end
 		if IsIgnored(ServiceInstance) then continue end
 
-		local ShouldSynchronizeAllDescendants: boolean = (Settings.SynchronizeAllDescendants == true) or (Settings.SyncAllDescendants == true) or (Settings.SynchronizationMode == 'AllDescendants') or (Settings.SyncMode == 'AllDescendants');
+		local ShouldSynchronizeAllDescendants: boolean = LocalSynchronizeAllDescendants;
 
 		for _: number, DescendantObject: Instance in ServiceInstance:GetDescendants() do
 			if IsIgnored(DescendantObject) then continue end
@@ -1213,13 +1267,13 @@ local function Import(IsLIVE: boolean?): ()
 
 			if not ExpectedObjectPaths[ObjectPath] then
 				if ShouldSynchronizeAllDescendants or DescendantObject:IsA('LuaSourceContainer') then
-					table.insert(StudioObjectsToDelete, DescendantObject);
+					table.insert(RSObjectsToDelete, DescendantObject);
 				end
 			end
 		end
 	end
 
-	for _: number, ObjectToDelete: Instance in StudioObjectsToDelete do
+	for _: number, ObjectToDelete: Instance in RSObjectsToDelete do
 		if not ObjectToDelete or not ObjectToDelete.Parent then continue end
 		if IsLockedInstance(ObjectToDelete) then continue end
 
@@ -1233,7 +1287,7 @@ local function Import(IsLIVE: boolean?): ()
 		end
 	end
 
-	print(`[Silicon Import] Processing {ObjectCount} object{(ObjectCount ~= 1) and 's' or ''} from IDE into Roblox Studio...`);
+	print(`[Silicon Import] Processing {ObjectCount} object{(ObjectCount ~= 1) and 's' or ''} from IDE into RS...`);
 
 	for Index: number, ObjectItem: { [string]: any } in ObjectsList do
 		local RelativePath: string = ObjectItem.path;
@@ -1280,6 +1334,68 @@ local function Import(IsLIVE: boolean?): ()
 	return;
 end
 
+ClearRSProject = function(): (number)
+	EnsurePluginCopy();
+
+	State.IsApplyingRemoteUpdate = true;
+
+	local LocalSynchronizeAllDescendants: boolean = (Settings.SynchronizeAllDescendants == true) or (Settings.SyncAllDescendants == true);
+	local RSObjectsToClear: { [number]: Instance } = { };
+
+	for _: number, ServiceName: string in SynchronizedServices do
+		local ServiceInstance: Instance? = nil;
+
+		local ServiceSuccess: boolean, ServiceResult: any = pcall(function(): (Instance)
+			return game:GetService(ServiceName);
+		end);
+
+		if ServiceSuccess and ServiceResult then
+			ServiceInstance = ServiceResult;
+		else
+			ServiceInstance = game:FindFirstChild(ServiceName);
+		end
+
+		if not ServiceInstance then continue end
+		if IsIgnored(ServiceInstance) then continue end
+
+		for _: number, DescendantObject: Instance in ServiceInstance:GetDescendants() do
+			if IsIgnored(DescendantObject) then continue end
+			if IsLockedInstance(DescendantObject) then continue end
+
+			if LocalSynchronizeAllDescendants or DescendantObject:IsA('LuaSourceContainer') then
+				table.insert(RSObjectsToClear, DescendantObject);
+			end
+		end
+	end
+
+	local ClearedCount: number = 0;
+
+	for _: number, ObjectToClear: Instance in RSObjectsToClear do
+		if not ObjectToClear or not ObjectToClear.Parent then continue end
+		if IsLockedInstance(ObjectToClear) or IsIgnored(ObjectToClear) then continue end
+
+		local AncestryNames: { [number]: string } = GetAncestry(ObjectToClear);
+		local ObjectPath: string = table.concat(AncestryNames, '/');
+
+		if SafelyDeleteOrRecycle(ObjectToClear, ObjectPath) then
+			LastKnownScriptHashes[ObjectPath] = nil;
+			ClearedCount += 1;
+		end
+	end
+
+	task.defer(function(): ()
+		State.IsApplyingRemoteUpdate = false;
+
+		return;
+	end);
+
+	EnsurePluginCopy();
+
+	print(`[Silicon] Cleared {ClearedCount} synchronized object{(ClearedCount ~= 1) and 's' or ''} from RS into the Recycle Bin!`);
+
+	return ClearedCount;
+end
+
 
 
 return setmetatable({
@@ -1288,6 +1404,8 @@ return setmetatable({
 	EnsureInstanceHierarchy    = EnsureInstanceHierarchy,
 	ApplyPropertiesToObject    = ApplyPropertiesToObject,
 	FindInstanceByRelativePath = FindInstanceByRelativePath,
+	SafelyDeleteOrRecycle      = SafelyDeleteOrRecycle,
+	ClearRSProject             = ClearRSProject,
 }, {
 	__call = function(_: any, IsLIVE: boolean?): ()
 		Import(IsLIVE);
